@@ -288,6 +288,17 @@ body {
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
 }
 
+.nav-logout {
+  margin-top: auto;
+  color: var(--priority-high);
+}
+
+.nav-logout:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--priority-high);
+  box-shadow: none;
+}
+
 .sidebar-footer {
   padding: 24px;
   border-top: 1px solid var(--border-color);

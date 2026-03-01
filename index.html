@@ -37,6 +37,10 @@
                 <i class="fas fa-calendar-alt"></i>
                 <span class="nav-text">Calendar</span>
             </li>
+            <li class="nav-item nav-logout" id="logout-btn">
+                <i class="fas fa-sign-out-alt"></i>
+                <span class="nav-text">Logout</span>
+            </li>
         </ul>
         <div class="sidebar-footer">
             <div class="user-profile">
@@ -46,9 +50,6 @@
                     <span class="user-name" id="display-username">Guest User</span>
                     <span class="user-role" id="display-email">Not Logged In</span>
                 </div>
-                <button class="icon-btn" id="logout-btn" title="Logout" style="margin-left: auto;">
-                    <i class="fas fa-sign-out-alt"></i>
-                </button>
             </div>
         </div>
     </aside>
@@ -368,10 +369,6 @@
         <button class="mobile-nav-item" data-target="calendar-view">
             <i class="fas fa-calendar-alt"></i>
             <span>Calendar</span>
-        </button>
-        <button class="mobile-nav-item mobile-nav-logout" id="mobile-logout-btn" onclick="document.getElementById('logout-btn').click()">
-            <i class="fas fa-sign-out-alt"></i>
-            <span>Logout</span>
         </button>
     </nav>
 

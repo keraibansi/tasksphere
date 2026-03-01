@@ -70,6 +70,12 @@ app.post('/api/auth/register', async (req, res) => {
         const newUser = new User({ username, email, password: hashedPassword });
         const savedUser = await newUser.save();
 
+        // 🔔 Log new signup
+        console.log(`\n🆕 NEW SIGNUP at ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST`);
+        console.log(`   👤 Username : ${savedUser.username}`);
+        console.log(`   📧 Email    : ${savedUser.email}`);
+        console.log(`   🆔 User ID  : ${savedUser._id}`);
+
         const token = jwt.sign({ id: savedUser._id, username: savedUser.username, email: savedUser.email }, JWT_SECRET, { expiresIn: '7d' });
         res.json({
             token,
@@ -89,7 +95,16 @@ app.post('/api/auth/login', async (req, res) => {
         if (!user) return res.status(400).json({ msg: 'User does not exist' });
 
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(400).json({ msg: 'Invalid credentials' });
+        if (!isMatch) {
+            console.log(`\n❌ FAILED LOGIN at ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST - Wrong password for: ${email}`);
+            return res.status(400).json({ msg: 'Invalid credentials' });
+        }
+
+        // 🔔 Log successful login
+        console.log(`\n✅ USER LOGGED IN at ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST`);
+        console.log(`   👤 Username : ${user.username}`);
+        console.log(`   📧 Email    : ${user.email}`);
+        console.log(`   🆔 User ID  : ${user._id}`);
 
         const token = jwt.sign({ id: user._id, username: user.username, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
         res.json({

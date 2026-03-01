@@ -1469,6 +1469,16 @@ textarea {
   background: rgba(239, 68, 68, 0.1);
 }
 
+/* Mobile bottom nav logout button */
+.mobile-nav-logout {
+  color: #ef4444 !important;
+}
+
+.mobile-nav-logout:hover,
+.mobile-nav-logout:active {
+  background: rgba(239, 68, 68, 0.12);
+}
+
 /* Column badge — not absolute-positioned */
 .column-badge {
   position: static;

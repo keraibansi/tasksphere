@@ -1,969 +1,737 @@
-/* ============================================================
-   TASKSPHERE — script.js
-   Full-featured: Auth, Onboarding, Tasks (CRUD), Kanban,
-   Team Collaboration, Real-time sync sim, AI Suggestions,
-   Analytics, Calendar, Pricing, Notifications, Dark/Light mode.
-   ============================================================ */
+// State Management
+let tasks = [];
+let currentTheme = localStorage.getItem('taskSphere_theme') || 'dark';
+// Auto-detect API URL: same origin in production, localhost in development
+const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000/api'
+    : '/api';
 
-'use strict';
+// Auth State
+let token = localStorage.getItem('taskSphere_token') || null;
+let currentUser = JSON.parse(localStorage.getItem('taskSphere_user')) || null;
 
-// ─────────────────────────────────────────
-// STATE
-// ─────────────────────────────────────────
-let users = JSON.parse(localStorage.getItem('ts_users')) || defaultUsers();
-let currentUser = JSON.parse(localStorage.getItem('ts_user')) || null;
-let tasks = JSON.parse(localStorage.getItem('ts_tasks')) || [];
-let members = JSON.parse(localStorage.getItem('ts_members')) || defaultMembers();
-let notifications = JSON.parse(localStorage.getItem('ts_notifs')) || [];
-let currentTheme = localStorage.getItem('ts_theme') || 'dark';
-let chartsInited = false;
-let statusChart, categoryChart, prodChart;
-let currentCalDate = new Date();
-let rtInterval, rtSyncInterval;
+// DOM Elements
+const body = document.documentElement;
+const themeToggleBtn = document.getElementById('theme-toggle');
+const sidebar = document.getElementById('sidebar');
+const toggleSidebarBtn = document.getElementById('toggle-sidebar');
+const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+const sidebarOverlay = document.getElementById('sidebar-overlay');
+const navItems = document.querySelectorAll('.nav-item');
+const mobileNavItems = document.querySelectorAll('.mobile-nav-item[data-target]');
+const viewSections = document.querySelectorAll('.view-section');
 
-function defaultUsers() {
-    return [{ id: '1', name: 'Alex Johnson', email: 'demo@tasksphere.io', password: 'demo1234', plan: 'Pro' }];
+// Modal Elements
+const authModal = document.getElementById('auth-modal');
+const loginSection = document.getElementById('login-section');
+const registerSection = document.getElementById('register-section');
+const showRegisterBtn = document.getElementById('show-register');
+const showLoginBtn = document.getElementById('show-login');
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const logoutBtn = document.getElementById('logout-btn');
+
+// Task Modal Elements
+const openModalBtn = document.getElementById('open-task-modal');
+const closeModalBtns = document.querySelectorAll('.close-modal, .close-modal-btn');
+const taskModal = document.getElementById('task-modal');
+const taskForm = document.getElementById('task-form');
+const modalTitle = document.getElementById('modal-title');
+
+// Initialize App
+function initApp() {
+    setTheme(currentTheme);
+    updateDateDisplay();
+    initSortable();
+
+    // Auth Check
+    if (!token) {
+        authModal.classList.add('show');
+    } else {
+        authModal.classList.remove('show');
+        updateUserUI();
+        fetchTasks();
+    }
 }
 
-function defaultMembers() {
-    return [
-        { id: 'm1', name: 'Alex Johnson', email: 'alex@ts.io', role: 'Designer', avatar: 'https://ui-avatars.com/api/?name=Alex+Johnson&background=6366f1&color=fff', online: true, busy: false },
-        { id: 'm2', name: 'Sam Rivera', email: 'sam@ts.io', role: 'Developer', avatar: 'https://ui-avatars.com/api/?name=Sam+Rivera&background=10b981&color=fff', online: true, busy: true },
-        { id: 'm3', name: 'Jordan Lee', email: 'jordan@ts.io', role: 'Manager', avatar: 'https://ui-avatars.com/api/?name=Jordan+Lee&background=f59e0b&color=fff', online: false, busy: false },
-        { id: 'm4', name: 'Taylor Kim', email: 'taylor@ts.io', role: 'Marketing', avatar: 'https://ui-avatars.com/api/?name=Taylor+Kim&background=8b5cf6&color=fff', online: true, busy: false },
-    ];
+// ------ AUTHENTICATION ------ //
+
+function updateUserUI() {
+    if (currentUser) {
+        document.getElementById('display-username').textContent = currentUser.username;
+        document.getElementById('display-email').textContent = currentUser.email;
+        // Generate avatar with username
+        const avatarImg = document.querySelector('.avatar');
+        avatarImg.src = `https://ui-avatars.com/api/?name=${currentUser.username}&background=6366f1&color=fff`;
+    }
 }
 
-// AI task suggestion pool
-const AI_SUGGESTIONS = {
-    'app': [
-        { title: 'Create wireframes for key screens', desc: 'Design low-fidelity wireframes for onboarding, dashboard, and settings', priority: 'high', category: 'design' },
-        { title: 'Set up CI/CD pipeline', desc: 'Configure GitHub Actions to auto-deploy to staging on push', priority: 'medium', category: 'development' },
-        { title: 'Write API documentation', desc: 'Document all REST endpoints using Swagger / OpenAPI 3.0', priority: 'medium', category: 'development' },
-        { title: 'Define user personas', desc: 'Research and create 3 target user personas for the product', priority: 'low', category: 'marketing' },
-        { title: 'Run usability tests', desc: 'Conduct 5 user interviews and synthesise findings', priority: 'high', category: 'design' },
-        { title: 'Set up error monitoring', desc: 'Integrate Sentry for real-time crash reporting', priority: 'medium', category: 'development' },
-    ],
-    'website': [
-        { title: 'Design landing page hero section', desc: 'Create a visually striking hero with clear CTA and headline', priority: 'high', category: 'design' },
-        { title: 'Implement SEO meta tags', desc: 'Add structured data, Open Graph, and canonical URLs', priority: 'medium', category: 'development' },
-        { title: 'Set up Google Analytics 4', desc: 'Configure GA4 with conversion events and custom dimensions', priority: 'medium', category: 'marketing' },
-        { title: 'Optimise Core Web Vitals', desc: 'Achieve 90+ Lighthouse score on LCP, FID, and CLS', priority: 'high', category: 'development' },
-        { title: 'Create content calendar', desc: 'Plan 12 weeks of blog posts aligned to target keywords', priority: 'low', category: 'marketing' },
-    ],
-    'launch': [
-        { title: 'Prepare launch press kit', desc: 'Create media kit with logos, screenshots, and founder bios', priority: 'high', category: 'marketing' },
-        { title: 'Set up email drip campaign', desc: 'Configure 5-email welcome sequence for new sign-ups', priority: 'medium', category: 'marketing' },
-        { title: 'Coordinate Product Hunt launch', desc: 'Schedule PH launch, gather hunter, and write tagline', priority: 'high', category: 'marketing' },
-        { title: 'Post-launch monitoring dashboard', desc: 'Set up real-time dashboard tracking sign-ups and errors', priority: 'medium', category: 'development' },
-        { title: 'Write launch announcement email', desc: 'Draft announcement to existing waitlist with launch offer', priority: 'high', category: 'marketing' },
-    ],
-    'default': [
-        { title: 'Define project scope & goals', desc: 'Align team on objectives, success metrics and timeline', priority: 'high', category: 'personal' },
-        { title: 'Set up project management board', desc: 'Create Kanban columns and invite team members', priority: 'medium', category: 'other' },
-        { title: 'Schedule weekly stand-up meetings', desc: 'Recurring Mon/Wed/Fri 15-min sync at 9 AM', priority: 'low', category: 'personal' },
-        { title: 'Document decisions and risks', desc: 'Maintain a running RAID log throughout the project', priority: 'medium', category: 'other' },
-        { title: 'Create stakeholder update template', desc: 'Weekly 1-page status report for non-technical stakeholders', priority: 'low', category: 'other' },
-    ]
-};
+async function handleAuthResponse(res, successMsg) {
+    const data = await res.json();
+    if (res.ok) {
+        token = data.token;
+        currentUser = data.user;
+        localStorage.setItem('taskSphere_token', token);
+        localStorage.setItem('taskSphere_user', JSON.stringify(currentUser));
 
-const ACTIVITY_TEMPLATES = [
-    (m) => `<strong>${m.name}</strong> completed a task`,
-    (m) => `<strong>${m.name}</strong> added a new task`,
-    (m) => `<strong>${m.name}</strong> moved a card to Review`,
-    (m) => `<strong>${m.name}</strong> left a comment`,
-    (m) => `<strong>${m.name}</strong> assigned a task to you`,
-];
+        authModal.classList.remove('show');
+        updateUserUI();
+        showToast(`${successMsg} Welcome, ${currentUser.username}!`, 'success');
 
-// ─────────────────────────────────────────
-// ONBOARDING
-// ─────────────────────────────────────────
-let currentSlide = 0;
+        loginForm.reset();
+        registerForm.reset();
 
-function initOnboarding() {
-    const overlay = document.getElementById('onboarding-overlay');
-    const sawOnboarding = localStorage.getItem('ts_onboarded');
-    if (sawOnboarding) { overlay.remove(); showAuthOrApp(); return; }
+        fetchTasks();
+    } else {
+        showToast(data.msg || data.error || 'Authentication failed', 'error');
+    }
+}
 
-    const slides = document.querySelectorAll('.onboarding-slide');
-    const dots = document.querySelectorAll('.dot');
-    const nextBtn = document.getElementById('ob-next');
-    const skipBtn = document.getElementById('ob-skip');
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
 
-    function goTo(idx) {
-        slides.forEach(s => s.classList.remove('active'));
-        dots.forEach(d => d.classList.remove('active'));
-        slides[idx].classList.add('active');
-        dots[idx].classList.add('active');
-        currentSlide = idx;
-        nextBtn.innerHTML = idx === slides.length - 1 ? 'Get Started <i class="fas fa-rocket"></i>' : 'Next <i class="fas fa-arrow-right"></i>';
+    try {
+        const res = await fetch(`${API_URL}/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+        });
+        await handleAuthResponse(res, 'Login successful!');
+    } catch (err) {
+        showToast('Server error. Ensure backend is running.', 'error');
+    }
+});
+
+registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('reg-username').value;
+    const email = document.getElementById('reg-email').value;
+    const password = document.getElementById('reg-password').value;
+
+    try {
+        const res = await fetch(`${API_URL}/auth/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password })
+        });
+        await handleAuthResponse(res, 'Account created!');
+    } catch (err) {
+        showToast('Server error. Ensure backend is running.', 'error');
+    }
+});
+
+logoutBtn.addEventListener('click', () => {
+    token = null;
+    currentUser = null;
+    localStorage.removeItem('taskSphere_token');
+    localStorage.removeItem('taskSphere_user');
+    tasks = [];
+    authModal.classList.add('show');
+    showToast('Logged out successfully', 'info');
+});
+
+showRegisterBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    loginSection.style.display = 'none';
+    registerSection.style.display = 'block';
+});
+
+showLoginBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    registerSection.style.display = 'none';
+    loginSection.style.display = 'block';
+});
+
+// Helper for API calls
+async function apiCall(endpoint, method = 'GET', body = null) {
+    const options = {
+        method,
+        headers: {
+            'Authorization': `Bearer ${token}`
+        }
+    };
+    if (body) {
+        options.headers['Content-Type'] = 'application/json';
+        options.body = JSON.stringify(body);
     }
 
-    nextBtn.addEventListener('click', () => {
-        if (currentSlide < slides.length - 1) { goTo(currentSlide + 1); }
-        else { finishOnboarding(); }
-    });
-    skipBtn.addEventListener('click', finishOnboarding);
-    dots.forEach(d => d.addEventListener('click', () => goTo(+d.dataset.index)));
+    const res = await fetch(`${API_URL}${endpoint}`, options);
+    if (res.status === 401) {
+        // Token expired or invalid
+        logoutBtn.click();
+        throw new Error('Unauthorized');
+    }
+    return res;
 }
 
-function finishOnboarding() {
-    localStorage.setItem('ts_onboarded', '1');
-    const ov = document.getElementById('onboarding-overlay');
-    ov.style.opacity = '0';
-    ov.style.transition = 'opacity 0.5s';
-    setTimeout(() => { ov.remove(); showAuthOrApp(); }, 500);
+// ------ TASK MANAGEMENT ------ //
+
+async function fetchTasks() {
+    try {
+        const res = await apiCall('/tasks');
+        if (res.ok) {
+            tasks = await res.json();
+            renderTasks();
+            updateDashboardStats();
+            initCharts();
+            initCalendar();
+        }
+    } catch (err) {
+        console.error(err);
+    }
 }
 
-function showAuthOrApp() {
-    if (currentUser) { bootApp(); }
-    else { document.getElementById('auth-screen').classList.remove('hidden'); }
-}
-
-// ─────────────────────────────────────────
-// AUTH
-// ─────────────────────────────────────────
-function initAuth() {
-    // Panel toggle
-    document.getElementById('go-register').addEventListener('click', (e) => { e.preventDefault(); switchAuthPanel('register'); });
-    document.getElementById('go-login').addEventListener('click', (e) => { e.preventDefault(); switchAuthPanel('login'); });
-
-    // Password toggles
-    document.querySelectorAll('.toggle-pass').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const input = btn.previousElementSibling;
-            const isText = input.type === 'text';
-            input.type = isText ? 'password' : 'text';
-            btn.querySelector('i').className = isText ? 'fas fa-eye' : 'fas fa-eye-slash';
-        });
-    });
-
-    // Login
-    document.getElementById('login-btn').addEventListener('click', () => {
-        const email = document.getElementById('login-email').value.trim();
-        const pass = document.getElementById('login-pass').value;
-        const user = users.find(u => u.email === email && u.password === pass);
-        if (!user) { showToast('Invalid email or password', 'error'); return; }
-        loginUser(user);
-    });
-
-    // Register
-    document.getElementById('register-btn').addEventListener('click', () => {
-        const name = document.getElementById('reg-name').value.trim();
-        const email = document.getElementById('reg-email').value.trim();
-        const pass = document.getElementById('reg-pass').value;
-        if (!name || !email || !pass) { showToast('Please fill all fields', 'error'); return; }
-        if (pass.length < 8) { showToast('Password must be at least 8 characters', 'error'); return; }
-        if (users.find(u => u.email === email)) { showToast('Email already registered', 'error'); return; }
-        const newUser = { id: Date.now().toString(), name, email, password: pass, plan: 'Free' };
-        users.push(newUser);
-        localStorage.setItem('ts_users', JSON.stringify(users));
-        loginUser(newUser);
-    });
-}
-
-function quickLogin(provider) {
-    const user = { id: 'social-' + Date.now(), name: provider + ' User', email: provider.toLowerCase() + '@oauth.com', password: '', plan: 'Pro' };
-    users = users.filter(u => !u.id.startsWith('social-'));
-    users.push(user);
-    localStorage.setItem('ts_users', JSON.stringify(users));
-    loginUser(user);
-}
-
-function switchAuthPanel(which) {
-    document.getElementById('login-panel').classList.toggle('active', which === 'login');
-    document.getElementById('register-panel').classList.toggle('active', which === 'register');
-}
-
-function loginUser(user) {
-    currentUser = user;
-    localStorage.setItem('ts_user', JSON.stringify(user));
-    document.getElementById('auth-screen').classList.add('hidden');
-    bootApp();
-}
-
-function logout() {
-    currentUser = null;
-    localStorage.removeItem('ts_user');
-    clearInterval(rtInterval);
-    clearInterval(rtSyncInterval);
-    document.getElementById('app-shell').classList.add('hidden');
-    document.getElementById('auth-screen').classList.remove('hidden');
-    switchAuthPanel('login');
-}
-
-// ─────────────────────────────────────────
-// APP BOOT
-// ─────────────────────────────────────────
-function bootApp() {
-    document.getElementById('app-shell').classList.remove('hidden');
-    setTheme(currentTheme);
-    updateSidebarUser();
-    updateDateDisplay();
-    buildAssigneeOptions();
-    renderAll();
-    initCalendar();
-    initCharts();
-    startRealtimeSync();
-    initNotifications();
-}
-
-function updateSidebarUser() {
-    if (!currentUser) return;
-    document.getElementById('sidebar-username').textContent = currentUser.name;
-    document.getElementById('sidebar-plan').textContent = (currentUser.plan || 'Free') + ' Plan';
-    const av = `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=6366f1&color=fff`;
-    document.getElementById('sidebar-avatar').src = av;
-    const greet = getGreeting();
-    document.getElementById('welcome-message').textContent = `${greet}, ${currentUser.name.split(' ')[0]} 👋`;
-    document.getElementById('welcome-sub').textContent = 'Here\'s what\'s happening across your workspace today.';
-}
-
-function getGreeting() {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good Morning';
-    if (h < 17) return 'Good Afternoon';
-    return 'Good Evening';
-}
-
-function buildAssigneeOptions() {
-    const sel = document.getElementById('task-assignee');
-    const filterSel = document.getElementById('filter-assignee');
-    sel.innerHTML = `<option value="me">${currentUser ? currentUser.name : 'Me'}</option>`;
-    filterSel.innerHTML = '<option value="all">All Members</option>';
-    members.forEach(m => {
-        sel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
-        filterSel.innerHTML += `<option value="${m.id}">${m.name}</option>`;
-    });
-}
-
-function renderAll() {
-    renderDashboard();
-    renderTaskList();
-    renderKanban();
-    renderTeam();
-    renderPricing();
-}
-
-// ─────────────────────────────────────────
-// SIDEBAR & NAVIGATION
-// ─────────────────────────────────────────
-document.getElementById('toggle-sidebar').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.toggle('collapsed');
-});
-
-document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        item.classList.add('active');
-        const target = item.dataset.target;
-        document.querySelectorAll('.view-section').forEach(s => {
-            s.classList.toggle('active', s.id === target);
-        });
-        if (target === 'analytics-view') updateCharts();
-    });
-});
-
-document.getElementById('dash-view-all').addEventListener('click', (e) => {
-    e.preventDefault();
-    document.querySelector('[data-target="tasks-view"]').click();
-});
-
-// ─────────────────────────────────────────
-// THEME
-// ─────────────────────────────────────────
+// Theme Handling
 function setTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    currentTheme = theme;
-    localStorage.setItem('ts_theme', theme);
-    const icon = document.querySelector('#theme-toggle i');
-    icon.className = theme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-    if (chartsInited && document.getElementById('analytics-view').classList.contains('active')) updateCharts();
+    body.setAttribute('data-theme', theme);
+    localStorage.setItem('taskSphere_theme', theme);
+    const icon = themeToggleBtn.querySelector('i');
+    if (theme === 'dark') {
+        icon.className = 'fas fa-moon';
+    } else {
+        icon.className = 'fas fa-sun';
+    }
+    updateChartsTheme();
 }
 
-document.getElementById('theme-toggle').addEventListener('click', () => {
-    setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+themeToggleBtn.addEventListener('click', () => {
+    currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    setTheme(currentTheme);
 });
 
-// ─────────────────────────────────────────
-// DATE
-// ─────────────────────────────────────────
+// Sidebar & Navigation
+function isMobile() {
+    return window.innerWidth <= 768;
+}
+
+// Open/close mobile sidebar drawer
+function openMobileSidebar() {
+    sidebar.classList.add('show');
+    sidebarOverlay.classList.add('active');
+    sidebarOverlay.style.display = 'block';
+}
+function closeMobileSidebar() {
+    sidebar.classList.remove('show');
+    sidebarOverlay.classList.remove('active');
+    setTimeout(() => sidebarOverlay.style.display = 'none', 300);
+}
+
+// Desktop toggle button — collapses/expands sidebar
+toggleSidebarBtn.addEventListener('click', () => {
+    if (isMobile()) {
+        openMobileSidebar();
+    } else {
+        sidebar.classList.toggle('collapsed');
+    }
+});
+
+// Mobile hamburger button (in top navbar)
+mobileMenuBtn.addEventListener('click', openMobileSidebar);
+
+// Overlay click closes sidebar
+sidebarOverlay.addEventListener('click', closeMobileSidebar);
+
+// Helper: switch view
+function switchView(targetView) {
+    navItems.forEach(n => n.classList.remove('active'));
+    mobileNavItems.forEach(n => n.classList.remove('active'));
+    viewSections.forEach(section => {
+        section.classList.remove('active');
+        if (section.id === targetView) section.classList.add('active');
+    });
+    // Sync active state on sidebar nav
+    navItems.forEach(n => {
+        if (n.getAttribute('data-target') === targetView) n.classList.add('active');
+    });
+    // Sync active state on mobile bottom nav
+    mobileNavItems.forEach(n => {
+        if (n.getAttribute('data-target') === targetView) n.classList.add('active');
+    });
+    if (targetView === 'analytics-view') updateCharts();
+}
+
+navItems.forEach(item => {
+    item.addEventListener('click', () => {
+        switchView(item.getAttribute('data-target'));
+        if (isMobile()) closeMobileSidebar();
+    });
+});
+
+// Mobile bottom nav
+mobileNavItems.forEach(item => {
+    item.addEventListener('click', () => {
+        switchView(item.getAttribute('data-target'));
+    });
+});
+
+// Mobile add button
+const mobileAddBtn = document.getElementById('mobile-add-btn');
+if (mobileAddBtn) mobileAddBtn.addEventListener('click', () => openModal());
+
 function updateDateDisplay() {
-    document.getElementById('current-date').textContent =
-        new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', options);
 }
 
-// ─────────────────────────────────────────
-// TASK MODAL
-// ─────────────────────────────────────────
-function openTaskModal(defaultStatus = null) {
-    document.getElementById('modal-title').textContent = 'Create New Task';
-    document.getElementById('task-form').reset();
-    document.getElementById('task-id').value = '';
-    document.getElementById('task-date').valueAsDate = new Date();
-    if (defaultStatus) document.getElementById('task-status').value = defaultStatus;
-    showModal('task-modal');
+// Modal Handling
+function openModal(editTaskId = null) {
+    if (editTaskId) {
+        modalTitle.textContent = 'Edit Task';
+        const task = tasks.find(t => t.id === editTaskId);
+        if (task) {
+            document.getElementById('task-id').value = task.id;
+            document.getElementById('task-title').value = task.title;
+            document.getElementById('task-desc').value = task.description;
+            document.getElementById('task-date').value = task.dueDate;
+            document.getElementById('task-priority').value = task.priority;
+            document.getElementById('task-category').value = task.category;
+            document.getElementById('task-status').value = task.status;
+        }
+    } else {
+        modalTitle.textContent = 'Create New Task';
+        taskForm.reset();
+        document.getElementById('task-id').value = '';
+        document.getElementById('task-date').valueAsDate = new Date();
+    }
+    taskModal.classList.add('show');
 }
 
-function openEditModal(id) {
-    const t = tasks.find(t => t.id === id);
-    if (!t) return;
-    document.getElementById('modal-title').textContent = 'Edit Task';
-    document.getElementById('task-id').value = t.id;
-    document.getElementById('task-title').value = t.title;
-    document.getElementById('task-desc').value = t.description || '';
-    document.getElementById('task-date').value = t.dueDate;
-    document.getElementById('task-priority').value = t.priority;
-    document.getElementById('task-category').value = t.category;
-    document.getElementById('task-status').value = t.status;
-    document.getElementById('task-assignee').value = t.assigneeId || 'me';
-    showModal('task-modal');
+function closeModal() {
+    taskModal.classList.remove('show');
+    taskForm.reset();
 }
 
-window.openTaskModal = openTaskModal;
-window.openEditModal = openEditModal;
+openModalBtn.addEventListener('click', () => openModal());
+closeModalBtns.forEach(btn => btn.addEventListener('click', closeModal));
 
-document.getElementById('open-task-modal').addEventListener('click', () => openTaskModal());
-
-document.getElementById('task-form').addEventListener('submit', (e) => {
+// Task CRUD
+taskForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const id = document.getElementById('task-id').value;
-    const assigneeId = document.getElementById('task-assignee').value;
-    const assignee = assigneeId === 'me'
-        ? { id: 'me', name: currentUser.name, avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser.name)}&background=6366f1&color=fff` }
-        : members.find(m => m.id === assigneeId);
 
-    const task = {
-        id: id || Date.now().toString(),
+    const id = document.getElementById('task-id').value;
+    const taskData = {
         title: document.getElementById('task-title').value,
         description: document.getElementById('task-desc').value,
         dueDate: document.getElementById('task-date').value,
         priority: document.getElementById('task-priority').value,
         category: document.getElementById('task-category').value,
-        status: document.getElementById('task-status').value,
-        assigneeId: assignee?.id || 'me',
-        assigneeName: assignee?.name || currentUser.name,
-        assigneeAvatar: assignee?.avatar || '',
-        createdAt: id ? (tasks.find(t => t.id === id)?.createdAt || new Date().toISOString()) : new Date().toISOString()
+        status: document.getElementById('task-status').value
     };
 
-    if (id) {
-        tasks = tasks.map(t => t.id === id ? task : t);
-        showToast('Task updated!', 'success');
-        addNotification(`Task "${task.title}" was updated.`);
-    } else {
-        tasks.push(task);
-        showToast('Task created! ✨', 'success');
-        addNotification(`New task added: "${task.title}"`);
+    try {
+        if (id) {
+            const res = await apiCall(`/tasks/${id}`, 'PUT', taskData);
+            if (res.ok) {
+                const updatedTask = await res.json();
+                const index = tasks.findIndex(t => t.id === id);
+                tasks[index] = updatedTask;
+                showToast('Task updated successfully!', 'success');
+            }
+        } else {
+            const res = await apiCall('/tasks', 'POST', taskData);
+            if (res.ok) {
+                const newTask = await res.json();
+                tasks.unshift(newTask); // Add to beginning
+                showToast('Task created successfully!', 'success');
+            }
+        }
+    } catch (err) {
+        showToast('Error saving task', 'error');
     }
 
-    saveTasks();
-    closeAllModals();
+    refreshUI();
+    closeModal();
 });
 
-// ─────────────────────────────────────────
-// TASK CRUD
-// ─────────────────────────────────────────
-function deleteTask(id) {
-    const t = tasks.find(t => t.id === id);
-    tasks = tasks.filter(t => t.id !== id);
-    saveTasks();
-    showToast('Task deleted', 'error');
-    if (t) addNotification(`Task "${t.title}" was deleted.`);
-}
-window.deleteTask = deleteTask;
-
-function toggleStatus(id) {
-    const t = tasks.find(t => t.id === id);
-    if (!t) return;
-    if (t.status === 'completed') { t.status = 'pending'; }
-    else { t.status = 'completed'; showToast('Task completed! 🎉', 'success'); addNotification(`"${t.title}" marked complete.`); }
-    saveTasks();
-}
-window.toggleStatus = toggleStatus;
-
-function saveTasks() {
-    localStorage.setItem('ts_tasks', JSON.stringify(tasks));
-    renderAll();
-    renderCalendar();
-    if (chartsInited) updateCharts();
+function refreshUI() {
+    renderTasks();
+    updateDashboardStats();
+    if (windowChartConfigs) updateCharts();
+    initCalendar();
 }
 
-// ─────────────────────────────────────────
-// TASK HTML BUILDERS
-// ─────────────────────────────────────────
-function statusLabel(s) {
-    const map = { pending: 'To Do', inprogress: 'In Progress', review: 'Review', completed: 'Done' };
-    return map[s] || s;
+async function deleteTask(id) {
+    try {
+        const res = await apiCall(`/tasks/${id}`, 'DELETE');
+        if (res.ok) {
+            tasks = tasks.filter(t => t.id !== id);
+            refreshUI();
+            showToast('Task deleted!', 'error');
+        }
+    } catch (err) {
+        console.error(err);
+    }
 }
 
-function createTaskItem(task, compact = false) {
-    const done = task.status === 'completed';
-    const dateStr = task.dueDate ? new Date(task.dueDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+async function toggleTaskStatus(id) {
+    const task = tasks.find(t => t.id === id);
+    if (task) {
+        const newStatus = task.status === 'completed' ? 'pending' : 'completed';
+        try {
+            const res = await apiCall(`/tasks/${id}`, 'PUT', { status: newStatus });
+            if (res.ok) {
+                task.status = newStatus;
+                if (newStatus === 'completed') {
+                    showToast('Task completed! 🎉', 'success');
+                }
+                // We don't refresh the full UI initially to let CSS transitions happen, 
+                // but for robust state, a refreshUI is safe. The drag&drop handles UI.
+                refreshUI();
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    }
+}
+
+// Render Engine
+function createTaskHTML(task) {
+    const isCompleted = task.status === 'completed';
     return `
-    <div class="task-item ${done ? 'completed' : ''}" data-id="${task.id}">
-      <div class="task-left">
-        <input type="checkbox" class="custom-checkbox" ${done ? 'checked' : ''} onchange="toggleStatus('${task.id}')">
-        <div class="task-info">
-          <h4 class="task-title">${sanitize(task.title)}</h4>
-          ${!compact && task.description ? `<p class="task-desc">${sanitize(task.description)}</p>` : ''}
-          <div class="task-meta">
-            ${dateStr ? `<span class="task-tag tag-date"><i class="far fa-calendar"></i> ${dateStr}</span>` : ''}
-            <span class="task-tag tag-${task.priority}"><i class="fas fa-flag"></i> ${cap(task.priority)}</span>
-            <span class="task-tag tag-category">${cap(task.category)}</span>
-            <span class="task-tag tag-${task.status}">${statusLabel(task.status)}</span>
-          </div>
+        <div class="task-item ${isCompleted ? 'completed' : ''}" data-id="${task.id}">
+            <div class="task-left">
+                <div class="task-checkbox-wrapper">
+                    <input type="checkbox" class="custom-checkbox" 
+                           ${isCompleted ? 'checked' : ''} 
+                           onchange="toggleTaskStatus('${task.id}')">
+                </div>
+                <div class="task-info">
+                    <h4 class="task-title">${task.title}</h4>
+                    <p class="task-desc">${task.description || 'No description'}</p>
+                    <div class="task-meta">
+                        <span class="task-tag tag-date">
+                            <i class="far fa-calendar"></i> ${new Date(task.dueDate).toLocaleDateString()}
+                        </span>
+                        <span class="task-tag tag-${task.priority}">
+                            <i class="fas fa-flag"></i> ${task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                        </span>
+                        <span class="task-tag tag-category">
+                            ${task.category}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            <div class="task-actions">
+                <button class="icon-btn" onclick="openModal('${task.id}')" title="Edit">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="icon-btn" onclick="deleteTask('${task.id}')" title="Delete" style="color: var(--priority-high)">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
         </div>
-      </div>
-      ${task.assigneeAvatar ? `<img class="task-assignee-avatar" src="${task.assigneeAvatar}" title="${task.assigneeName}" alt="${task.assigneeName}">` : ''}
-      <div class="task-actions">
-        <button class="icon-btn" onclick="openEditModal('${task.id}')" title="Edit"><i class="fas fa-edit"></i></button>
-        <button class="icon-btn" onclick="deleteTask('${task.id}')" title="Delete" style="color:var(--p-high)"><i class="fas fa-trash-alt"></i></button>
-      </div>
-    </div>`;
+    `;
 }
 
-function createKanbanCard(task) {
-    const dateStr = task.dueDate ? new Date(task.dueDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
-    return `
-    <div class="kanban-card ${task.priority}" data-id="${task.id}">
-      <div class="kanban-card-title">${sanitize(task.title)}</div>
-      ${task.description ? `<p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:6px;">${sanitize(task.description).substring(0, 80)}${task.description.length > 80 ? '…' : ''}</p>` : ''}
-      <div class="task-meta">
-        <span class="task-tag tag-${task.priority}"><i class="fas fa-flag"></i> ${cap(task.priority)}</span>
-        <span class="task-tag tag-category">${cap(task.category)}</span>
-      </div>
-      <div class="kanban-card-footer">
-        <span class="kanban-card-date">${dateStr ? '<i class="far fa-calendar" style="margin-right:4px"></i>' + dateStr : ''}</span>
-        <div style="display:flex;align-items:center;gap:6px">
-          <div class="kanban-card-actions">
-            <button class="icon-btn" style="font-size:0.9rem;padding:5px" onclick="openEditModal('${task.id}')" title="Edit"><i class="fas fa-edit"></i></button>
-            <button class="icon-btn" style="font-size:0.9rem;padding:5px;color:var(--p-high)" onclick="deleteTask('${task.id}')" title="Delete"><i class="fas fa-trash-alt"></i></button>
-          </div>
-          ${task.assigneeAvatar ? `<img class="kc-assignee" src="${task.assigneeAvatar}" title="${task.assigneeName}" alt="">` : ''}
-        </div>
-      </div>
-    </div>`;
+function renderTasks() {
+    // Recent Tasks (Dashboard)
+    const recentTasksList = document.getElementById('recent-task-list');
+    const sortedTasks = [...tasks].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    recentTasksList.innerHTML = sortedTasks.slice(0, 5).map(createTaskHTML).join('') || '<p style="color:var(--text-secondary); padding: 20px;">No tasks found. Create one above!</p>';
+
+    applyFiltersAndSort();
 }
 
-// ─────────────────────────────────────────
-// DASHBOARD
-// ─────────────────────────────────────────
-function renderDashboard() {
+function applyFiltersAndSort() {
+    const statusFilter = document.getElementById('filter-status').value;
+    const priorityFilter = document.getElementById('filter-priority').value;
+    const sortType = document.getElementById('sort-tasks').value;
+    const searchQuery = document.getElementById('global-search').value.toLowerCase();
+
+    let filteredTasks = tasks.filter(task => {
+        const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
+        const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
+        const descMatch = task.description ? task.description.toLowerCase().includes(searchQuery) : false;
+        const matchesSearch = task.title.toLowerCase().includes(searchQuery) || descMatch;
+        return matchesStatus && matchesPriority && matchesSearch;
+    });
+
+    filteredTasks.sort((a, b) => {
+        if (sortType === 'due-date') return new Date(a.dueDate) - new Date(b.dueDate);
+        if (sortType === 'priority') {
+            const p = { high: 3, medium: 2, low: 1 };
+            return p[b.priority] - p[a.priority];
+        }
+        return new Date(b.createdAt) - new Date(a.createdAt); // recent
+    });
+
+    const pendingContainer = document.querySelector('#task-list-pending .task-items-container');
+    const completedContainer = document.querySelector('#task-list-completed .task-items-container');
+
+    // Saftey check, wait for DOM
+    if (!pendingContainer) return;
+
+    const pendingTasks = filteredTasks.filter(t => t.status === 'pending');
+    const completedTasks = filteredTasks.filter(t => t.status === 'completed');
+
+    pendingContainer.innerHTML = pendingTasks.map(createTaskHTML).join('');
+    completedContainer.innerHTML = completedTasks.map(createTaskHTML).join('');
+
+    // Update badges
+    document.querySelector('#task-list-pending .column-badge').textContent = pendingTasks.length;
+    document.querySelector('#task-list-completed .column-badge').textContent = completedTasks.length;
+}
+
+document.getElementById('filter-status').addEventListener('change', applyFiltersAndSort);
+document.getElementById('filter-priority').addEventListener('change', applyFiltersAndSort);
+document.getElementById('sort-tasks').addEventListener('change', applyFiltersAndSort);
+document.getElementById('global-search').addEventListener('input', applyFiltersAndSort);
+
+function updateDashboardStats() {
     const total = tasks.length;
     const completed = tasks.filter(t => t.status === 'completed').length;
-    const pending = tasks.filter(t => t.status === 'pending').length;
-    const high = tasks.filter(t => t.priority === 'high' && t.status !== 'completed').length;
-    const pct = total === 0 ? 0 : Math.round(completed / total * 100);
+    const pending = total - completed;
+    const highPriority = tasks.filter(t => t.priority === 'high' && t.status === 'pending').length;
 
-    setText('stat-total', total);
-    setText('stat-completed', completed);
-    setText('stat-pending', pending);
-    setText('stat-high', high);
-    setText('daily-progress-text', pct + '%');
-    document.getElementById('daily-progress-fill').style.width = pct + '%';
+    document.getElementById('stat-total').textContent = total;
+    document.getElementById('stat-completed').textContent = completed;
+    document.getElementById('stat-pending').textContent = pending;
+    document.getElementById('stat-high').textContent = highPriority;
 
-    // Recent tasks (latest 5)
-    const sorted = [...tasks].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 5);
-    const el = document.getElementById('recent-task-list');
-    el.innerHTML = sorted.length ? sorted.map(t => createTaskItem(t, true)).join('') : '<p class="empty-state">No tasks yet. Click "New Task" to get started.</p>';
-
-    // Activity feed
-    renderActivityFeed();
+    const progressPercent = total === 0 ? 0 : Math.round((completed / total) * 100);
+    document.getElementById('daily-progress-text').textContent = `${progressPercent}%`;
+    document.getElementById('daily-progress-fill').style.width = `${progressPercent}%`;
 }
 
-function renderActivityFeed() {
-    const feed = document.getElementById('activity-feed');
-    const times = ['just now', '2m ago', '8m ago', '15m ago', '31m ago', '1h ago'];
-    const items = members.slice(0, 5).map((m, i) => {
-        const template = ACTIVITY_TEMPLATES[i % ACTIVITY_TEMPLATES.length];
-        return `<div class="activity-item">
-      <img class="activity-avatar" src="${m.avatar}" alt="${m.name}">
-      <div>
-        <div class="activity-text">${template(m)}</div>
-        <div class="activity-time">${times[i] || '2h ago'}</div>
-      </div>
-    </div>`;
-    });
-    feed.innerHTML = items.join('') || '<p class="empty-state">No recent activity</p>';
-}
+// Drag and Drop (SortableJS)
+function initSortable() {
+    const containers = document.querySelectorAll('.sortable-list');
+    containers.forEach(container => {
+        new Sortable(container, {
+            group: 'shared',
+            animation: 150,
+            ghostClass: 'glass',
+            onEnd: async function (evt) {
+                const itemEl = evt.item;
+                const taskId = itemEl.getAttribute('data-id');
+                const toColumn = evt.to.closest('.task-column').getAttribute('data-status');
 
-// ─────────────────────────────────────────
-// TASK LIST VIEW
-// ─────────────────────────────────────────
-document.getElementById('filter-status').addEventListener('change', renderTaskList);
-document.getElementById('filter-priority').addEventListener('change', renderTaskList);
-document.getElementById('filter-assignee').addEventListener('change', renderTaskList);
-document.getElementById('sort-tasks').addEventListener('change', renderTaskList);
-document.getElementById('global-search').addEventListener('input', () => { renderTaskList(); renderDashboard(); });
-
-function renderTaskList() {
-    const status = document.getElementById('filter-status').value;
-    const priority = document.getElementById('filter-priority').value;
-    const assignee = document.getElementById('filter-assignee').value;
-    const sort = document.getElementById('sort-tasks').value;
-    const query = document.getElementById('global-search').value.toLowerCase();
-
-    let filtered = tasks.filter(t => {
-        const okStatus = status === 'all' || t.status === status;
-        const okPriority = priority === 'all' || t.priority === priority;
-        const okAssignee = assignee === 'all' || t.assigneeId === assignee;
-        const okSearch = !query || t.title.toLowerCase().includes(query) || (t.description || '').toLowerCase().includes(query);
-        return okStatus && okPriority && okAssignee && okSearch;
-    });
-
-    const priorityOrder = { high: 3, medium: 2, low: 1 };
-    filtered.sort((a, b) => {
-        if (sort === 'due-date') return new Date(a.dueDate) - new Date(b.dueDate);
-        if (sort === 'priority') return priorityOrder[b.priority] - priorityOrder[a.priority];
-        return new Date(b.createdAt) - new Date(a.createdAt);
-    });
-
-    const el = document.getElementById('task-list-all');
-    el.innerHTML = filtered.length ? filtered.map(t => createTaskItem(t)).join('') : '<p class="empty-state">No tasks match your filters.</p>';
-}
-
-// ─────────────────────────────────────────
-// KANBAN BOARD
-// ─────────────────────────────────────────
-const KANBAN_COLS = ['pending', 'inprogress', 'review', 'completed'];
-
-function renderKanban() {
-    KANBAN_COLS.forEach(status => {
-        const container = document.getElementById(`kanban-${status}`);
-        const badge = document.getElementById(`k-badge-${status}`);
-        const col = tasks.filter(t => t.status === status);
-        container.innerHTML = col.length ? col.map(t => createKanbanCard(t)).join('') : '';
-        badge.textContent = col.length;
-    });
-}
-
-function initKanbanSortable() {
-    KANBAN_COLS.forEach(status => {
-        const el = document.getElementById(`kanban-${status}`);
-        new Sortable(el, {
-            group: 'kanban',
-            animation: 180,
-            ghostClass: 'sortable-ghost',
-            onEnd(evt) {
-                const taskId = evt.item.getAttribute('data-id');
-                const toStatus = evt.to.closest('.kanban-col').getAttribute('data-status');
                 const task = tasks.find(t => t.id === taskId);
-                if (task && task.status !== toStatus) {
-                    task.status = toStatus;
-                    saveTasks();
-                    if (toStatus === 'completed') { showToast('🎉 Task done!', 'success'); addNotification(`"${task.title}" moved to Done`); }
-                    else showToast(`Moved to ${statusLabel(toStatus)}`, 'info');
+                if (task && task.status !== toColumn) {
+                    try {
+                        const res = await apiCall(`/tasks/${taskId}`, 'PUT', { status: toColumn });
+                        if (res.ok) {
+                            task.status = toColumn;
+                            if (toColumn === 'completed') showToast('Task updated to completed!', 'success');
+                            refreshUI();
+                        }
+                    } catch (err) {
+                        refreshUI(); // Revert on failure
+                        showToast('Error moving task', 'error');
+                    }
                 }
             }
         });
     });
 }
 
-// ─────────────────────────────────────────
-// TEAM & COLLABORATION
-// ─────────────────────────────────────────
-document.getElementById('invite-btn').addEventListener('click', () => showModal('invite-modal'));
+// Toast Notifications
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
 
-document.getElementById('add-member-btn').addEventListener('click', () => {
-    const name = document.getElementById('inv-name').value.trim();
-    const email = document.getElementById('inv-email').value.trim();
-    const role = document.getElementById('inv-role').value;
-    if (!name || !email) { showToast('Please fill all fields', 'error'); return; }
+    let icon = 'fa-info-circle';
+    if (type === 'success') icon = 'fa-check-circle';
+    if (type === 'error') icon = 'fa-exclamation-circle';
 
-    const colors = ['6366f1', '10b981', 'f59e0b', '8b5cf6', 'ec4899', 'ef4444'];
-    const color = colors[members.length % colors.length];
-    const newMember = {
-        id: 'm' + Date.now(), name, email, role,
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=${color}&color=fff`,
-        online: false, busy: false
-    };
-    members.push(newMember);
-    localStorage.setItem('ts_members', JSON.stringify(members));
-    buildAssigneeOptions();
-    renderTeam();
-    closeAllModals();
-    showToast(`Invitation sent to ${name}! 📧`, 'success');
-    addNotification(`${name} was invited to the team.`);
-});
+    toast.innerHTML = `<i class="fas ${icon}"></i> <span>${message}</span>`;
+    container.appendChild(toast);
 
-function renderTeam() {
-    // Members list
-    const list = document.getElementById('members-list');
-    list.innerHTML = members.map(m => {
-        const memberTasks = tasks.filter(t => t.assigneeId === m.id).length;
-        const statusClass = m.busy ? 'busy' : m.online ? '' : 'offline';
-        const statusLabel = m.busy ? 'Busy' : m.online ? 'Online' : 'Offline';
-        return `<div class="member-card">
-      <div class="member-status-dot ${statusClass}" title="${statusLabel}"></div>
-      <img class="member-avatar" src="${m.avatar}" alt="${m.name}">
-      <div class="member-info">
-        <div class="member-name">${sanitize(m.name)}</div>
-        <div class="member-role">${m.role} · ${statusLabel}</div>
-      </div>
-      <span class="member-tasks-count">${memberTasks} tasks</span>
-    </div>`;
-    }).join('');
-
-    // Team task list (tasks with assignee info)
-    const taskList = document.getElementById('team-task-list');
-    const teamTasks = tasks.filter(t => t.assigneeId && t.assigneeId !== 'me').slice(0, 10);
-    taskList.innerHTML = teamTasks.length
-        ? `<div class="task-list">${teamTasks.map(t => createTaskItem(t)).join('')}</div>`
-        : '<p class="empty-state">No team-assigned tasks yet. Assign tasks to members when creating them.</p>';
-}
-
-// ─────────────────────────────────────────
-// REAL-TIME SYNC SIMULATION
-// ─────────────────────────────────────────
-function startRealtimeSync() {
-    const syncStatus = document.getElementById('sync-status');
-    const syncLabel = document.querySelector('.sync-label');
-    const rtLabel = document.getElementById('rt-label');
-    const notifBadge = document.getElementById('notif-badge');
-
-    // Simulate initial sync
-    syncStatus.classList.add('syncing');
-    if (syncLabel) syncLabel.textContent = 'Syncing...';
     setTimeout(() => {
-        syncStatus.classList.remove('syncing');
-        if (syncLabel) syncLabel.textContent = 'Live Sync';
-    }, 2000);
-
-    // Heartbeat every 8s – simulate remote changes
-    rtInterval = setInterval(() => {
-        flashSyncPulse();
-        // Randomly add a team notification
-        if (Math.random() < 0.4 && members.length > 0) {
-            const m = members[Math.floor(Math.random() * members.length)];
-            const template = ACTIVITY_TEMPLATES[Math.floor(Math.random() * ACTIVITY_TEMPLATES.length)];
-            const msg = template(m).replace(/<[^>]+>/g, '');
-            addNotification(msg, true);
+        if (container.contains(toast)) {
+            container.removeChild(toast);
         }
-    }, 8000);
-
-    // RT label animation
-    rtSyncInterval = setInterval(() => {
-        rtLabel.textContent = 'Live Sync';
-        setTimeout(() => { rtLabel.textContent = 'All saved ✓'; }, 2000);
-    }, 10000);
+    }, 3300);
 }
 
-function flashSyncPulse() {
-    const dot = document.querySelector('.sync-dot');
-    if (!dot) return;
-    dot.style.background = '#f59e0b';
-    setTimeout(() => { dot.style.background = '#10b981'; }, 800);
-}
+// Analytics Charts
+let statusChart, categoryChart, prodChart;
+let windowChartConfigs = false;
 
-// ─────────────────────────────────────────
-// NOTIFICATIONS
-// ─────────────────────────────────────────
-function initNotifications() {
-    document.getElementById('notif-btn').addEventListener('click', (e) => {
-        e.stopPropagation();
-        document.getElementById('notif-dropdown').classList.toggle('show');
-    });
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.notif-wrapper')) {
-            document.getElementById('notif-dropdown').classList.remove('show');
-        }
-    });
-    renderNotifications();
-}
-
-function addNotification(msg, fromRT = false) {
-    const notif = { id: Date.now().toString(), msg, time: new Date().toISOString(), read: false };
-    notifications.unshift(notif);
-    if (notifications.length > 20) notifications.pop();
-    localStorage.setItem('ts_notifs', JSON.stringify(notifications));
-    renderNotifications();
-    if (fromRT) showToast(msg, 'info');
-}
-
-function clearNotifs() {
-    notifications = [];
-    localStorage.setItem('ts_notifs', JSON.stringify(notifications));
-    renderNotifications();
-}
-window.clearNotifs = clearNotifs;
-
-function renderNotifications() {
-    const el = document.getElementById('notif-list');
-    const badge = document.getElementById('notif-badge');
-    const unread = notifications.filter(n => !n.read).length;
-    badge.textContent = unread || 0;
-    badge.style.display = unread ? 'block' : 'none';
-
-    if (!notifications.length) {
-        el.innerHTML = '<div class="notif-empty">No notifications</div>';
-        return;
-    }
-    el.innerHTML = notifications.slice(0, 10).map(n => `
-    <div class="notif-item">
-      <div class="notif-dot"></div>
-      <div>
-        <p>${sanitize(n.msg)}</p>
-        <span>${timeAgo(new Date(n.time))}</span>
-      </div>
-    </div>`).join('');
-}
-
-function timeAgo(date) {
-    const diff = Math.floor((Date.now() - date) / 1000);
-    if (diff < 60) return 'just now';
-    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-    return Math.floor(diff / 86400) + 'd ago';
-}
-
-// ─────────────────────────────────────────
-// AI TASK SUGGESTIONS
-// ─────────────────────────────────────────
-document.getElementById('ai-suggest-btn').addEventListener('click', () => showModal('ai-modal'));
-
-document.getElementById('ai-generate-btn').addEventListener('click', () => {
-    const prompt = document.getElementById('ai-prompt').value.trim();
-    const loading = document.getElementById('ai-loading');
-    const results = document.getElementById('ai-results');
-
-    loading.classList.remove('hidden');
-    results.innerHTML = '';
-
-    // Simulate AI "thinking"
-    setTimeout(() => {
-        loading.classList.add('hidden');
-        const key = Object.keys(AI_SUGGESTIONS).find(k => prompt.toLowerCase().includes(k)) || 'default';
-        const suggestions = AI_SUGGESTIONS[key] || AI_SUGGESTIONS['default'];
-        const shuffled = [...suggestions].sort(() => Math.random() - 0.5).slice(0, 4);
-
-        results.innerHTML = shuffled.map((s, i) => `
-      <div class="ai-suggestion-card" style="animation-delay:${i * 0.08}s">
-        <div class="ai-suggestion-info">
-          <h4>${sanitize(s.title)}</h4>
-          <p>${sanitize(s.desc)}</p>
-          <div class="ai-suggestion-meta">
-            <span class="task-tag tag-${s.priority}"><i class="fas fa-flag"></i> ${cap(s.priority)}</span>
-            <span class="task-tag tag-category">${cap(s.category)}</span>
-          </div>
-        </div>
-        <button class="btn btn-primary" style="margin-left:12px;flex-shrink:0" onclick="addAISuggestion(${i}, ${JSON.stringify(shuffled).replace(/"/g, '&quot;')})">
-          <i class="fas fa-plus"></i> Add
-        </button>
-      </div>`).join('');
-        if (!prompt) showToast('Enter a project goal for smarter suggestions!', 'warning');
-    }, 1800);
-});
-
-window.addAISuggestion = function (idx, suggestions) {
-    if (typeof suggestions === 'string') suggestions = JSON.parse(suggestions.replace(/&quot;/g, '"'));
-    const s = suggestions[idx];
-    const today = new Date(); today.setDate(today.getDate() + 7);
-    const task = {
-        id: Date.now().toString(),
-        title: s.title, description: s.desc,
-        dueDate: today.toISOString().split('T')[0],
-        priority: s.priority, category: s.category,
-        status: 'pending', assigneeId: 'me',
-        assigneeName: currentUser?.name || 'Me',
-        assigneeAvatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(currentUser?.name || 'Me')}&background=6366f1&color=fff`,
-        createdAt: new Date().toISOString()
-    };
-    tasks.push(task);
-    saveTasks();
-    showToast('AI task added to your board! 🤖', 'success');
-    addNotification(`AI suggested task added: "${task.title}"`);
-};
-
-// ─────────────────────────────────────────
-// ANALYTICS CHARTS
-// ─────────────────────────────────────────
-function getColors() {
-    const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+function getThemeColors() {
+    const isDark = body.getAttribute('data-theme') === 'dark';
     return {
-        text: dark ? '#f1f5f9' : '#0f172a',
-        grid: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-        accent: '#6366f1', success: '#10b981', warning: '#f59e0b', danger: '#ef4444',
-        purple: '#8b5cf6', pink: '#ec4899'
+        text: isDark ? '#f8fafc' : '#0f172a',
+        grid: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+        primary: '#6366f1',
+        success: '#10b981',
+        warning: '#f59e0b',
+        danger: '#ef4444'
     };
 }
 
-function initCharts() { chartsInited = true; updateCharts(); }
+function initCharts() {
+    const analyticsView = document.getElementById('analytics-view');
+    if (!analyticsView) return;
+
+    windowChartConfigs = true;
+    updateCharts();
+}
 
 function updateCharts() {
-    const c = getColors();
-    Chart.defaults.color = c.text;
-    Chart.defaults.font.family = "'Inter', sans-serif";
+    // Only update if elements exist (in case UI is redrawing)
+    if (!document.getElementById('statusChart')) return;
 
-    const done = tasks.filter(t => t.status === 'completed').length;
-    const prog = tasks.filter(t => t.status === 'inprogress').length;
-    const review = tasks.filter(t => t.status === 'review').length;
-    const pending = tasks.filter(t => t.status === 'pending').length;
+    const colors = getThemeColors();
+    Chart.defaults.color = colors.text;
 
-    // STATUS DOUGHNUT
-    const sCTX = document.getElementById('statusChart').getContext('2d');
+    const completed = tasks.filter(t => t.status === 'completed').length;
+    const pending = tasks.length - completed;
+
+    const ctxStatus = document.getElementById('statusChart').getContext('2d');
     if (statusChart) statusChart.destroy();
-    statusChart = new Chart(sCTX, {
+    statusChart = new Chart(ctxStatus, {
         type: 'doughnut',
         data: {
-            labels: ['Done', 'In Progress', 'Review', 'To Do'],
-            datasets: [{ data: [done, prog, review, pending], backgroundColor: [c.success, c.warning, c.purple, c.accent], borderWidth: 0, hoverOffset: 6 }]
-        },
-        options: { responsive: true, plugins: { legend: { position: 'bottom' } }, cutout: '65%' }
-    });
-
-    // CATEGORY BAR
-    const cats = {};
-    tasks.forEach(t => { cats[t.category] = (cats[t.category] || 0) + 1; });
-    const cCTX = document.getElementById('categoryChart').getContext('2d');
-    if (categoryChart) categoryChart.destroy();
-    categoryChart = new Chart(cCTX, {
-        type: 'bar',
-        data: {
-            labels: Object.keys(cats).map(cap),
-            datasets: [{ label: 'Tasks', data: Object.values(cats), backgroundColor: [c.accent, c.success, c.warning, c.purple, c.pink], borderRadius: 6 }]
-        },
-        options: { plugins: { legend: { display: false } }, scales: { y: { grid: { color: c.grid }, beginAtZero: true, ticks: { stepSize: 1 } }, x: { grid: { display: false } } } }
-    });
-
-    // PRODUCTIVITY LINE
-    const days = Array.from({ length: 7 }, (_, i) => {
-        const d = new Date(); d.setDate(d.getDate() - (6 - i));
-        return d.toLocaleDateString('en-US', { weekday: 'short' });
-    });
-    const seed = [1, 2, 3, 2, 4, 3, done > 0 ? done : 2];
-    const pCTX = document.getElementById('productivityChart').getContext('2d');
-    if (prodChart) prodChart.destroy();
-    prodChart = new Chart(pCTX, {
-        type: 'line',
-        data: {
-            labels: days,
-            datasets: [
-                { label: 'Completed', data: seed, borderColor: c.success, backgroundColor: 'rgba(16,185,129,0.08)', tension: 0.5, fill: true, borderWidth: 2.5, pointBackgroundColor: c.success },
-                { label: 'Added', data: seed.map(v => Math.max(1, v + Math.floor(Math.random() * 2 - 1))), borderColor: c.accent, backgroundColor: 'rgba(99,102,241,0.06)', tension: 0.5, fill: true, borderWidth: 2.5, pointBackgroundColor: c.accent }
-            ]
+            labels: ['Completed', 'Pending'],
+            datasets: [{
+                data: [completed, pending],
+                backgroundColor: [colors.success, colors.warning],
+                borderWidth: 0,
+                hoverOffset: 4
+            }]
         },
         options: {
-            responsive: true, maintainAspectRatio: false,
-            scales: { y: { grid: { color: c.grid }, beginAtZero: true }, x: { grid: { display: false } } }
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+
+    const categories = {};
+    tasks.forEach(t => {
+        categories[t.category] = (categories[t.category] || 0) + 1;
+    });
+
+    const ctxCategory = document.getElementById('categoryChart').getContext('2d');
+    if (categoryChart) categoryChart.destroy();
+    categoryChart = new Chart(ctxCategory, {
+        type: 'bar',
+        data: {
+            labels: Object.keys(categories).map(c => c.charAt(0).toUpperCase() + c.slice(1)),
+            datasets: [{
+                label: 'Tasks',
+                data: Object.values(categories),
+                backgroundColor: colors.primary,
+                borderRadius: 6
+            }]
+        },
+        options: {
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { grid: { color: colors.grid }, beginAtZero: true, ticks: { stepSize: 1 } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        return d.toLocaleDateString('en-US', { weekday: 'short' });
+    });
+
+    const ctxProd = document.getElementById('productivityChart').getContext('2d');
+    if (prodChart) prodChart.destroy();
+    prodChart = new Chart(ctxProd, {
+        type: 'line',
+        data: {
+            labels: last7Days,
+            datasets: [{
+                label: 'Completed Tasks',
+                data: [0, 2, 1, 3, 2, 4, completed > 0 ? completed : 0],
+                borderColor: colors.success,
+                tension: 0.4,
+                borderWidth: 3,
+                pointBackgroundColor: colors.success
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { grid: { color: colors.grid }, beginAtZero: true },
+                x: { grid: { display: false } }
+            }
         }
     });
 }
 
-// ─────────────────────────────────────────
-// CALENDAR
-// ─────────────────────────────────────────
+function updateChartsTheme() {
+    if (windowChartConfigs && document.getElementById('analytics-view').classList.contains('active')) {
+        updateCharts();
+    }
+}
+
+// Calendar View
+let currentCalDate = new Date();
+
 function initCalendar() {
+    if (!document.getElementById('calendar-month-year')) return;
+
     renderCalendar();
-    document.getElementById('prev-month').onclick = () => { currentCalDate.setMonth(currentCalDate.getMonth() - 1); renderCalendar(); };
-    document.getElementById('next-month').onclick = () => { currentCalDate.setMonth(currentCalDate.getMonth() + 1); renderCalendar(); };
+
+    document.getElementById('prev-month').onclick = () => {
+        currentCalDate.setMonth(currentCalDate.getMonth() - 1);
+        renderCalendar();
+    };
+    document.getElementById('next-month').onclick = () => {
+        currentCalDate.setMonth(currentCalDate.getMonth() + 1);
+        renderCalendar();
+    };
 }
 
 function renderCalendar() {
     const year = currentCalDate.getFullYear();
     const month = currentCalDate.getMonth();
+
     document.getElementById('calendar-month-year').textContent =
         new Date(year, month).toLocaleString('default', { month: 'long', year: 'numeric' });
 
-    const days = document.getElementById('calendar-days');
+    const daysContainer = document.getElementById('calendar-days');
+    daysContainer.innerHTML = '';
+
     const firstDay = new Date(year, month, 1).getDay();
-    const daysInMo = new Date(year, month + 1, 0).getDate();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+    for (let i = 0; i < firstDay; i++) {
+        daysContainer.innerHTML += `<div class="calendar-day empty"></div>`;
+    }
+
     const today = new Date();
 
-    let html = '';
-    for (let i = 0; i < firstDay; i++) html += '<div class="calendar-day empty"></div>';
-    for (let d = 1; d <= daysInMo; d++) {
-        const ds = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-        const dayTasks = tasks.filter(t => t.dueDate === ds);
-        const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-        const dots = dayTasks.map(t => `<div class="day-dot dot-${t.priority}"></div>`).join('');
-        html += `<div class="calendar-day${isToday ? ' today' : ''}" onclick="jumpToDate('${ds}')" title="${dayTasks.length} task(s)">
-      <span class="date-num">${d}</span>
-      <div class="day-indicators">${dots}</div>
-    </div>`;
+    for (let i = 1; i <= daysInMonth; i++) {
+        const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+        const dayTasks = tasks.filter(t => t.dueDate === dateString);
+
+        let dotsHTML = '';
+        dayTasks.forEach(t => {
+            dotsHTML += `<div class="day-dot dot-${t.priority}"></div>`;
+        });
+
+        const isToday =
+            i === today.getDate() &&
+                month === today.getMonth() &&
+                year === today.getFullYear() ? 'today' : '';
+
+        daysContainer.innerHTML += `
+            <div class="calendar-day ${isToday}" title="${dayTasks.length} tasks" onclick="filterByDate('${dateString}')">
+                <span class="date-num">${i}</span>
+                <div class="day-indicators">
+                    ${dotsHTML}
+                </div>
+            </div>
+        `;
     }
-    days.innerHTML = html;
 }
 
-window.jumpToDate = function (ds) {
+function filterByDate(dateStr) {
     document.querySelector('[data-target="tasks-view"]').click();
-    showToast(`Showing tasks for ${ds}`, 'info');
-};
-
-// ─────────────────────────────────────────
-// PRICING
-// ─────────────────────────────────────────
-function renderPricing() { }
-
-document.getElementById('billing-toggle').addEventListener('change', function () {
-    const annual = this.checked;
-    document.querySelectorAll('.price-amount').forEach(el => {
-        const mo = el.dataset.monthly;
-        const an = el.dataset.annual;
-        el.textContent = `$${annual ? an : mo}`;
-    });
-});
-
-window.selectPlan = function (plan) {
-    const labels = { free: "You're on the Free plan", pro: 'Upgraded to Pro! 🚀', enterprise: "We'll be in touch shortly!" };
-    showToast(labels[plan], 'success');
-    if (plan !== 'free' && currentUser) {
-        currentUser.plan = plan === 'pro' ? 'Pro' : 'Enterprise';
-        localStorage.setItem('ts_user', JSON.stringify(currentUser));
-        updateSidebarUser();
-    }
-};
-
-// ─────────────────────────────────────────
-// MODAL HELPERS
-// ─────────────────────────────────────────
-function showModal(id) { document.getElementById(id).classList.add('show'); }
-
-function closeAllModals() {
-    document.querySelectorAll('.modal').forEach(m => m.classList.remove('show'));
+    document.getElementById('sort-tasks').value = 'due-date';
+    showToast(`Viewing tasks around ${dateStr}`, 'info');
 }
 
-document.querySelectorAll('.close-modal').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const modalId = btn.dataset.modal;
-        if (modalId) { document.getElementById(modalId).classList.remove('show'); }
-        else { closeAllModals(); }
-    });
-});
-
-document.querySelectorAll('.modal').forEach(modal => {
-    modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('show'); });
-});
-
-// ─────────────────────────────────────────
-// TOAST
-// ─────────────────────────────────────────
-function showToast(msg, type = 'info') {
-    const container = document.getElementById('toast-container');
-    const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
-    const icons = { success: 'fa-check-circle', error: 'fa-times-circle', info: 'fa-info-circle', warning: 'fa-exclamation-triangle' };
-    toast.innerHTML = `<i class="fas ${icons[type] || icons.info}"></i><span>${sanitize(msg)}</span>`;
-    container.appendChild(toast);
-    setTimeout(() => { if (container.contains(toast)) container.removeChild(toast); }, 3100);
-}
-
-// ─────────────────────────────────────────
-// UTILITY
-// ─────────────────────────────────────────
-function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
-function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : ''; }
-function sanitize(str) {
-    if (!str) return '';
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-// ─────────────────────────────────────────
-// INIT
-// ─────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
-    setTheme(currentTheme);
-    initOnboarding();
-    initAuth();
-    initKanbanSortable();
-});
+// Start App
+document.addEventListener('DOMContentLoaded', initApp);

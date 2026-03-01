@@ -4,526 +4,298 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TaskSphere – SaaS Task Management</title>
-    <meta name="description"
-        content="TaskSphere – Premium SaaS dashboard for managing tasks with teams, AI suggestions, kanban boards and analytics.">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <title>TaskSphere - SaaS Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-
-    <!-- ============================================================ -->
-    <!-- ONBOARDING OVERLAY -->
-    <!-- ============================================================ -->
-    <div id="onboarding-overlay">
-        <div class="onboarding-wrapper">
-            <!-- Slide 1 -->
-            <div class="onboarding-slide active" data-slide="0">
-                <div class="onboarding-anim">
-                    <div class="orb orb1"></div>
-                    <div class="orb orb2"></div>
-                    <div class="orb orb3"></div>
-                    <div class="onboarding-icon"><i class="fas fa-layer-group"></i></div>
-                </div>
-                <h1>Welcome to <span class="brand-gradient">TaskSphere</span></h1>
-                <p>Your all-in-one SaaS task management platform for individuals and high-performance teams.</p>
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <div class="logo-icon"><i class="fas fa-layer-group"></i></div>
+                <span class="logo-text">TaskSphere</span>
             </div>
-            <!-- Slide 2 -->
-            <div class="onboarding-slide" data-slide="1">
-                <div class="onboarding-anim">
-                    <div class="feature-grid-anim">
-                        <div class="feat-box"><i class="fas fa-robot"></i></div>
-                        <div class="feat-box"><i class="fas fa-users"></i></div>
-                        <div class="feat-box"><i class="fas fa-chart-line"></i></div>
-                        <div class="feat-box"><i class="fas fa-columns"></i></div>
+            <button class="toggle-btn" id="toggle-sidebar"><i class="fas fa-bars"></i></button>
+        </div>
+        <ul class="nav-links">
+            <li class="nav-item active" data-target="dashboard-view">
+                <i class="fas fa-home"></i>
+                <span class="nav-text">Dashboard</span>
+            </li>
+            <li class="nav-item" data-target="tasks-view">
+                <i class="fas fa-tasks"></i>
+                <span class="nav-text">My Tasks</span>
+            </li>
+            <li class="nav-item" data-target="analytics-view">
+                <i class="fas fa-chart-pie"></i>
+                <span class="nav-text">Analytics</span>
+            </li>
+            <li class="nav-item" data-target="calendar-view">
+                <i class="fas fa-calendar-alt"></i>
+                <span class="nav-text">Calendar</span>
+            </li>
+        </ul>
+        <div class="sidebar-footer">
+            <div class="user-profile">
+                <img src="https://ui-avatars.com/api/?name=User&background=6366f1&color=fff" alt="User Avatar"
+                    class="avatar">
+                <div class="user-info">
+                    <span class="user-name" id="display-username">Guest User</span>
+                    <span class="user-role" id="display-email">Not Logged In</span>
+                </div>
+                <button class="icon-btn" id="logout-btn" title="Logout" style="margin-left: auto;">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Mobile Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Navbar -->
+        <header class="topside-nav">
+            <!-- Mobile hamburger (left side of top nav on mobile) -->
+            <button class="mobile-menu-btn" id="mobile-menu-btn">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input type="text" id="global-search" placeholder="Search tasks...">
+            </div>
+            <div class="header-actions">
+                <div class="current-date" id="current-date"></div>
+                <button class="icon-btn theme-toggle" id="theme-toggle">
+                    <i class="fas fa-sun"></i>
+                </button>
+                <button class="add-task-btn" id="open-task-modal">
+                    <i class="fas fa-plus"></i> <span class="btn-label">New Task</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Views Container -->
+        <div class="views-container">
+            <!-- Dashboard View -->
+            <section id="dashboard-view" class="view-section active">
+                <div class="welcome-banner">
+                    <div>
+                        <h1 id="welcome-message">Good Morning, User 👋</h1>
+                        <p>Here is what's happening with your projects today.</p>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-info">
+                            <span>Daily Goal</span>
+                            <span id="daily-progress-text">0%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="daily-progress-fill"></div>
+                        </div>
                     </div>
                 </div>
-                <h1>Built for <span class="brand-gradient">Modern Teams</span></h1>
-                <p>AI suggestions, team collaboration, Kanban boards, real-time sync — everything you need to ship
-                    faster.</p>
-            </div>
-            <!-- Slide 3 -->
-            <div class="onboarding-slide" data-slide="2">
-                <div class="onboarding-anim">
-                    <div class="rocket-anim"><i class="fas fa-rocket"></i></div>
+
+                <div class="stats-grid">
+                    <div class="stat-card glass focus-total">
+                        <div class="stat-icon"><i class="fas fa-list"></i></div>
+                        <div class="stat-details">
+                            <h3>Total Tasks</h3>
+                            <p class="stat-number" id="stat-total">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass focus-completed">
+                        <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                        <div class="stat-details">
+                            <h3>Completed</h3>
+                            <p class="stat-number" id="stat-completed">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass focus-pending">
+                        <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                        <div class="stat-details">
+                            <h3>Pending</h3>
+                            <p class="stat-number" id="stat-pending">0</p>
+                        </div>
+                    </div>
+                    <div class="stat-card glass focus-high">
+                        <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="stat-details">
+                            <h3>High Priority</h3>
+                            <p class="stat-number" id="stat-high">0</p>
+                        </div>
+                    </div>
                 </div>
-                <h1>Ready to <span class="brand-gradient">Launch?</span></h1>
-                <p>Create an account or sign in to get started. Your workspace is just seconds away.</p>
+
+                <div class="recent-tasks-section">
+                    <div class="section-header">
+                        <h2>Recent Tasks</h2>
+                        <a href="#" class="view-all"
+                            onclick="document.querySelector('[data-target=\'tasks-view\']').click()">View All</a>
+                    </div>
+                    <div class="task-list recent" id="recent-task-list">
+                        <!-- Tasks will be dynamically populated here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tasks View -->
+            <section id="tasks-view" class="view-section">
+                <div class="section-header">
+                    <h2>My Tasks</h2>
+                    <div class="filters">
+                        <select id="filter-status" class="glass-input">
+                            <option value="all">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="completed">Completed</option>
+                        </select>
+                        <select id="filter-priority" class="glass-input">
+                            <option value="all">All Priority</option>
+                            <option value="high">High</option>
+                            <option value="medium">Medium</option>
+                            <option value="low">Low</option>
+                        </select>
+                        <select id="sort-tasks" class="glass-input">
+                            <option value="recent">Recently Added</option>
+                            <option value="due-date">Due Date</option>
+                            <option value="priority">Priority</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="task-board">
+                    <div class="task-column dropzone" id="task-list-pending" data-status="pending">
+                        <div class="column-header">
+                            <h3>To Do <span class="badge column-badge"></span></h3>
+                        </div>
+                        <div class="task-items-container sortable-list"></div>
+                    </div>
+
+                    <div class="task-column dropzone" id="task-list-completed" data-status="completed">
+                        <div class="column-header">
+                            <h3>Completed <span class="badge column-badge"></span></h3>
+                        </div>
+                        <div class="task-items-container sortable-list"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Analytics View -->
+            <section id="analytics-view" class="view-section">
+                <div class="section-header">
+                    <h2>Analytics Dashboard</h2>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-card glass">
+                        <h3>Task Status Overview</h3>
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                    <div class="chart-card glass">
+                        <h3>Tasks by Category</h3>
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                    <div class="chart-card glass full-width">
+                        <h3>Weekly Productivity</h3>
+                        <canvas id="productivityChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Calendar View -->
+            <section id="calendar-view" class="view-section">
+                <div class="section-header">
+                    <h2>Task Calendar</h2>
+                    <div class="calendar-controls">
+                        <button class="icon-btn" id="prev-month"><i class="fas fa-chevron-left"></i></button>
+                        <h3 id="calendar-month-year"></h3>
+                        <button class="icon-btn" id="next-month"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div class="calendar-grid glass" id="calendar-grid">
+                    <div class="days-header">
+                        <div>Sun</div>
+                        <div>Mon</div>
+                        <div>Tue</div>
+                        <div>Wed</div>
+                        <div>Thu</div>
+                        <div>Fri</div>
+                        <div>Sat</div>
+                    </div>
+                    <div class="calendar-days" id="calendar-days">
+                        <!-- Days will be generated by JS -->
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Auth Modal -->
+    <div class="modal show" id="auth-modal">
+        <div class="modal-content glass auth-card"
+            style="max-width: 440px; width: 90%; margin: auto; text-align: center;">
+            <div class="logo" style="justify-content: center; margin-bottom: 24px; gap: 12px;">
+                <div class="logo-icon"><i class="fas fa-layer-group"></i></div>
+                <span class="logo-text" style="font-size: 1.8rem;">TaskSphere</span>
             </div>
 
-            <div class="onboarding-dots" id="onboarding-dots">
-                <span class="dot active" data-index="0"></span>
-                <span class="dot" data-index="1"></span>
-                <span class="dot" data-index="2"></span>
+            <!-- Login Section -->
+            <div id="login-section">
+                <h2 style="margin-bottom: 6px;">Welcome Back</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 28px; font-size: 0.95rem;">Sign in to your
+                    account to continue.</p>
+                <form id="login-form" style="text-align: left;">
+                    <div class="form-group">
+                        <input type="email" id="login-email" required placeholder="Email Address">
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="login-password" required placeholder="Password">
+                    </div>
+                    <button type="submit" class="btn btn-primary"
+                        style="width: 100%; justify-content: center; margin-top: 4px; padding: 13px 20px; font-size: 1rem;">Login</button>
+                </form>
+                <p style="margin-top: 24px; font-size: 0.9rem; color: var(--text-secondary);">
+                    Don't have an account? <a href="#" id="show-register"
+                        style="color: var(--accent-color); font-weight: 600; text-decoration: none;">Sign up</a>
+                </p>
             </div>
-            <div class="onboarding-actions">
-                <button class="btn btn-outline" id="ob-skip">Skip</button>
-                <button class="btn btn-primary" id="ob-next">Next <i class="fas fa-arrow-right"></i></button>
+
+            <!-- Register Section -->
+            <div id="register-section" style="display: none;">
+                <h2 style="margin-bottom: 6px;">Create Account</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 28px; font-size: 0.95rem;">Join TaskSphere today.
+                    It's free!</p>
+                <form id="register-form" style="text-align: left;">
+                    <div class="form-group">
+                        <input type="text" id="reg-username" required placeholder="Username">
+                    </div>
+                    <div class="form-group">
+                        <input type="email" id="reg-email" required placeholder="Email Address">
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="reg-password" required placeholder="Password">
+                    </div>
+                    <button type="submit" class="btn btn-primary"
+                        style="width: 100%; justify-content: center; margin-top: 4px; padding: 13px 20px; font-size: 1rem;">Create
+                        Account</button>
+                </form>
+                <p style="margin-top: 24px; font-size: 0.9rem; color: var(--text-secondary);">
+                    Already have an account? <a href="#" id="show-login"
+                        style="color: var(--accent-color); font-weight: 600; text-decoration: none;">Login</a>
+                </p>
             </div>
         </div>
     </div>
 
-    <!-- ============================================================ -->
-    <!-- AUTH SCREEN (Login / Register) -->
-    <!-- ============================================================ -->
-    <div id="auth-screen" class="hidden">
-        <div class="auth-bg">
-            <div class="auth-blob b1"></div>
-            <div class="auth-blob b2"></div>
-            <div class="auth-blob b3"></div>
-        </div>
-        <div class="auth-card glass">
-            <div class="auth-logo">
-                <i class="fas fa-layer-group"></i>
-                <span>TaskSphere</span>
-            </div>
 
-            <!-- Login Panel -->
-            <div id="login-panel" class="auth-panel active">
-                <h2>Welcome back</h2>
-                <p class="auth-sub">Sign in to your workspace</p>
-                <div class="social-auth">
-                    <button class="social-btn" onclick="quickLogin('Google')"><i class="fab fa-google"></i>
-                        Google</button>
-                    <button class="social-btn" onclick="quickLogin('GitHub')"><i class="fab fa-github"></i>
-                        GitHub</button>
-                </div>
-                <div class="auth-divider"><span>or</span></div>
-                <div class="form-group">
-                    <label>Email</label>
-                    <div class="input-icon-wrap"><input type="email" id="login-email" placeholder="you@company.com">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <div class="input-icon-wrap"><input type="password" id="login-pass" placeholder="••••••••"><button
-                            class="toggle-pass"><i class="fas fa-eye"></i></button></div>
-                </div>
-                <div class="auth-row">
-                    <label class="checkbox-label"><input type="checkbox"> Remember me</label>
-                    <a href="#" class="auth-link">Forgot password?</a>
-                </div>
-                <button class="btn btn-primary full-width" id="login-btn">Sign In</button>
-                <p class="auth-switch">Don't have an account? <a href="#" id="go-register">Create one free</a></p>
-            </div>
-
-            <!-- Register Panel -->
-            <div id="register-panel" class="auth-panel">
-                <h2>Create account</h2>
-                <p class="auth-sub">Start your 14-day free trial</p>
-                <div class="form-group">
-                    <label>Full Name</label>
-                    <div class="input-icon-wrap"><input type="text" id="reg-name" placeholder="Jane Doe"></div>
-                </div>
-                <div class="form-group">
-                    <label>Email</label>
-                    <div class="input-icon-wrap"><input type="email" id="reg-email" placeholder="you@company.com"></div>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <div class="input-icon-wrap"><input type="password" id="reg-pass"
-                            placeholder="Min. 8 characters"><button class="toggle-pass"><i
-                                class="fas fa-eye"></i></button></div>
-                </div>
-                <button class="btn btn-primary full-width" id="register-btn">Create Account</button>
-                <p class="auth-switch">Already have an account? <a href="#" id="go-login">Sign in</a></p>
-            </div>
-        </div>
-    </div>
-
-    <!-- ============================================================ -->
-    <!-- MAIN APP SHELL -->
-    <!-- ============================================================ -->
-    <div id="app-shell" class="hidden">
-
-        <!-- Sidebar -->
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">
-                    <div class="logo-icon"><i class="fas fa-layer-group"></i></div>
-                    <span class="logo-text">TaskSphere</span>
-                </div>
-                <button class="toggle-btn icon-btn" id="toggle-sidebar"><i class="fas fa-bars"></i></button>
-            </div>
-
-            <!-- Sync Indicator -->
-            <div class="sync-status" id="sync-status">
-                <span class="sync-dot"></span>
-                <span class="sync-label">Syncing...</span>
-            </div>
-
-            <ul class="nav-links">
-                <li class="nav-item active" data-target="dashboard-view"><i class="fas fa-home"></i><span
-                        class="nav-text">Dashboard</span></li>
-                <li class="nav-item" data-target="tasks-view"><i class="fas fa-tasks"></i><span class="nav-text">My
-                        Tasks</span></li>
-                <li class="nav-item" data-target="kanban-view"><i class="fas fa-columns"></i><span
-                        class="nav-text">Kanban Board</span></li>
-                <li class="nav-item" data-target="team-view"><i class="fas fa-users"></i><span
-                        class="nav-text">Team</span></li>
-                <li class="nav-item" data-target="analytics-view"><i class="fas fa-chart-pie"></i><span
-                        class="nav-text">Analytics</span></li>
-                <li class="nav-item" data-target="calendar-view"><i class="fas fa-calendar-alt"></i><span
-                        class="nav-text">Calendar</span></li>
-                <li class="nav-item" data-target="pricing-view"><i class="fas fa-crown"></i><span
-                        class="nav-text">Pricing</span></li>
-            </ul>
-
-            <div class="sidebar-footer">
-                <div class="user-profile-sidebar">
-                    <img id="sidebar-avatar" src="https://ui-avatars.com/api/?name=User&background=6366f1&color=fff"
-                        alt="Avatar" class="avatar">
-                    <div class="user-info">
-                        <span class="user-name" id="sidebar-username">User</span>
-                        <span class="user-role" id="sidebar-plan">Free Plan</span>
-                    </div>
-                    <button class="icon-btn" onclick="logout()" title="Sign Out"><i
-                            class="fas fa-sign-out-alt"></i></button>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Top Navbar -->
-            <header class="topside-nav">
-                <div class="search-bar">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="global-search" placeholder="Search tasks...">
-                </div>
-                <div class="header-actions">
-                    <div class="current-date" id="current-date"></div>
-                    <!-- Real-time sync pulse -->
-                    <div class="realtime-pill" id="realtime-pill">
-                        <span class="rt-dot"></span>
-                        <span id="rt-label">Live Sync</span>
-                    </div>
-                    <button class="icon-btn" id="ai-suggest-btn" title="AI Suggestions">
-                        <i class="fas fa-robot"></i>
-                        <span class="badge ai-badge">AI</span>
-                    </button>
-                    <button class="icon-btn theme-toggle" id="theme-toggle"><i class="fas fa-moon"></i></button>
-                    <div class="notif-wrapper">
-                        <button class="icon-btn" id="notif-btn"><i class="fas fa-bell"></i><span class="badge"
-                                id="notif-badge">0</span></button>
-                        <div class="notif-dropdown glass" id="notif-dropdown">
-                            <div class="notif-header">
-                                <h4>Notifications</h4><button class="notif-clear" onclick="clearNotifs()">Clear
-                                    all</button>
-                            </div>
-                            <div id="notif-list"></div>
-                        </div>
-                    </div>
-                    <button class="btn btn-primary" id="open-task-modal"><i class="fas fa-plus"></i> New Task</button>
-                </div>
-            </header>
-
-            <!-- Views -->
-            <div class="views-container">
-
-                <!-- ── DASHBOARD ── -->
-                <section id="dashboard-view" class="view-section active">
-                    <div class="welcome-banner">
-                        <div>
-                            <h1 id="welcome-message">Good Morning 👋</h1>
-                            <p id="welcome-sub">Here's what's happening across your workspace today.</p>
-                        </div>
-                        <div class="progress-container">
-                            <div class="progress-info"><span>Completion Rate</span><span
-                                    id="daily-progress-text">0%</span></div>
-                            <div class="progress-bar-bg">
-                                <div class="progress-bar-fill" id="daily-progress-fill"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="stats-grid">
-                        <div class="stat-card glass focus-total">
-                            <div class="stat-icon"><i class="fas fa-list"></i></div>
-                            <div class="stat-details">
-                                <h3>Total Tasks</h3>
-                                <p class="stat-number" id="stat-total">0</p>
-                            </div>
-                        </div>
-                        <div class="stat-card glass focus-completed">
-                            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
-                            <div class="stat-details">
-                                <h3>Completed</h3>
-                                <p class="stat-number" id="stat-completed">0</p>
-                            </div>
-                        </div>
-                        <div class="stat-card glass focus-pending">
-                            <div class="stat-icon"><i class="fas fa-clock"></i></div>
-                            <div class="stat-details">
-                                <h3>Pending</h3>
-                                <p class="stat-number" id="stat-pending">0</p>
-                            </div>
-                        </div>
-                        <div class="stat-card glass focus-high">
-                            <div class="stat-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                            <div class="stat-details">
-                                <h3>High Priority</h3>
-                                <p class="stat-number" id="stat-high">0</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dashboard-grid">
-                        <div class="recent-tasks-section">
-                            <div class="section-header">
-                                <h2>Recent Tasks</h2>
-                                <a href="#" class="view-all" id="dash-view-all">View All</a>
-                            </div>
-                            <div class="task-list" id="recent-task-list">
-                                <p class="empty-state">No tasks yet. Create one!</p>
-                            </div>
-                        </div>
-                        <div class="team-activity glass">
-                            <div class="section-header">
-                                <h2>Team Activity</h2>
-                            </div>
-                            <div id="activity-feed"></div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- ── MY TASKS ── -->
-                <section id="tasks-view" class="view-section">
-                    <div class="section-header">
-                        <h2>My Tasks</h2>
-                        <div class="filters">
-                            <select id="filter-status" class="glass-input">
-                                <option value="all">All Status</option>
-                                <option value="pending">Pending</option>
-                                <option value="inprogress">In Progress</option>
-                                <option value="completed">Completed</option>
-                            </select>
-                            <select id="filter-priority" class="glass-input">
-                                <option value="all">All Priority</option>
-                                <option value="high">High</option>
-                                <option value="medium">Medium</option>
-                                <option value="low">Low</option>
-                            </select>
-                            <select id="filter-assignee" class="glass-input">
-                                <option value="all">All Members</option>
-                            </select>
-                            <select id="sort-tasks" class="glass-input">
-                                <option value="recent">Recently Added</option>
-                                <option value="due-date">Due Date</option>
-                                <option value="priority">Priority</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div id="task-list-all" class="task-list" style="margin-top:20px;"></div>
-                </section>
-
-                <!-- ── KANBAN BOARD ── -->
-                <section id="kanban-view" class="view-section">
-                    <div class="section-header">
-                        <h2>Kanban Board</h2>
-                        <button class="btn btn-primary" onclick="openTaskModal()"><i class="fas fa-plus"></i> Add
-                            Task</button>
-                    </div>
-                    <div class="kanban-board" id="kanban-board">
-                        <div class="kanban-col" data-status="pending">
-                            <div class="kanban-col-header" style="--col-color:#6366f1"><span>📋 To Do</span><span
-                                    class="k-badge" id="k-badge-pending">0</span></div>
-                            <div class="kanban-items sortable-list" id="kanban-pending"></div>
-                            <button class="kanban-add-btn" onclick="openTaskModal()"><i class="fas fa-plus"></i> Add
-                                card</button>
-                        </div>
-                        <div class="kanban-col" data-status="inprogress">
-                            <div class="kanban-col-header" style="--col-color:#f59e0b"><span>⚡ In Progress</span><span
-                                    class="k-badge" id="k-badge-inprogress">0</span></div>
-                            <div class="kanban-items sortable-list" id="kanban-inprogress"></div>
-                            <button class="kanban-add-btn" onclick="openTaskModal('inprogress')"><i
-                                    class="fas fa-plus"></i> Add card</button>
-                        </div>
-                        <div class="kanban-col" data-status="review">
-                            <div class="kanban-col-header" style="--col-color:#8b5cf6"><span>🔍 Review</span><span
-                                    class="k-badge" id="k-badge-review">0</span></div>
-                            <div class="kanban-items sortable-list" id="kanban-review"></div>
-                            <button class="kanban-add-btn" onclick="openTaskModal('review')"><i class="fas fa-plus"></i>
-                                Add card</button>
-                        </div>
-                        <div class="kanban-col" data-status="completed">
-                            <div class="kanban-col-header" style="--col-color:#10b981"><span>✅ Done</span><span
-                                    class="k-badge" id="k-badge-completed">0</span></div>
-                            <div class="kanban-items sortable-list" id="kanban-completed"></div>
-                            <button class="kanban-add-btn" onclick="openTaskModal('completed')"><i
-                                    class="fas fa-plus"></i> Add card</button>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- ── TEAM ── -->
-                <section id="team-view" class="view-section">
-                    <div class="section-header">
-                        <h2>Team Collaboration</h2>
-                        <button class="btn btn-primary" id="invite-btn"><i class="fas fa-user-plus"></i> Invite
-                            Member</button>
-                    </div>
-                    <div class="team-grid">
-                        <div class="team-members-panel glass">
-                            <h3>Team Members</h3>
-                            <div id="members-list"></div>
-                        </div>
-                        <div class="team-tasks-panel">
-                            <h3 style="margin-bottom:16px;">Task Assignment</h3>
-                            <div id="team-task-list"></div>
-                        </div>
-                    </div>
-
-                    <!-- Invite Modal -->
-                    <div class="modal" id="invite-modal">
-                        <div class="modal-content glass">
-                            <div class="modal-header">
-                                <h2>Invite Team Member</h2><button class="close-modal" data-modal="invite-modal"><i
-                                        class="fas fa-times"></i></button>
-                            </div>
-                            <div class="form-group"><label>Full Name</label><input type="text" id="inv-name"
-                                    class="glass-input" style="width:100%" placeholder="Jane Doe"></div>
-                            <div class="form-group"><label>Email</label><input type="email" id="inv-email"
-                                    class="glass-input" style="width:100%" placeholder="jane@company.com"></div>
-                            <div class="form-group"><label>Role</label><select id="inv-role" class="glass-input"
-                                    style="width:100%">
-                                    <option>Developer</option>
-                                    <option>Designer</option>
-                                    <option>Manager</option>
-                                    <option>Marketing</option>
-                                </select></div>
-                            <div class="modal-footer"><button class="btn btn-outline close-modal"
-                                    data-modal="invite-modal">Cancel</button><button class="btn btn-primary"
-                                    id="add-member-btn">Send Invite</button></div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- ── ANALYTICS ── -->
-                <section id="analytics-view" class="view-section">
-                    <div class="section-header">
-                        <h2>Analytics Dashboard</h2>
-                    </div>
-                    <div class="charts-grid">
-                        <div class="chart-card glass">
-                            <h3>Task Status Overview</h3><canvas id="statusChart"></canvas>
-                        </div>
-                        <div class="chart-card glass">
-                            <h3>Tasks by Category</h3><canvas id="categoryChart"></canvas>
-                        </div>
-                        <div class="chart-card glass full-width" style="height:280px">
-                            <h3>Weekly Productivity</h3><canvas id="productivityChart"></canvas>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- ── CALENDAR ── -->
-                <section id="calendar-view" class="view-section">
-                    <div class="section-header">
-                        <h2>Task Calendar</h2>
-                        <div class="calendar-controls">
-                            <button class="icon-btn" id="prev-month"><i class="fas fa-chevron-left"></i></button>
-                            <h3 id="calendar-month-year"></h3>
-                            <button class="icon-btn" id="next-month"><i class="fas fa-chevron-right"></i></button>
-                        </div>
-                    </div>
-                    <div class="calendar-grid glass" id="calendar-grid">
-                        <div class="days-header">
-                            <div>Sun</div>
-                            <div>Mon</div>
-                            <div>Tue</div>
-                            <div>Wed</div>
-                            <div>Thu</div>
-                            <div>Fri</div>
-                            <div>Sat</div>
-                        </div>
-                        <div class="calendar-days" id="calendar-days"></div>
-                    </div>
-                </section>
-
-                <!-- ── PRICING ── -->
-                <section id="pricing-view" class="view-section">
-                    <div class="section-header">
-                        <h2>Upgrade Your Plan</h2>
-                    </div>
-                    <p class="pricing-sub">Simple, transparent pricing for every team size.</p>
-                    <div class="pricing-toggle">
-                        <span>Monthly</span>
-                        <label class="switch"><input type="checkbox" id="billing-toggle"><span
-                                class="slider round"></span></label>
-                        <span>Annual <span class="save-badge">Save 30%</span></span>
-                    </div>
-                    <div class="pricing-grid">
-                        <!-- Free -->
-                        <div class="pricing-card glass">
-                            <div class="plan-badge"></div>
-                            <h3 class="plan-name">Free</h3>
-                            <div class="plan-price"><span class="price-amount" data-monthly="0"
-                                    data-annual="0">$0</span><span class="price-period">/mo</span></div>
-                            <p class="plan-desc">Perfect for individuals getting started.</p>
-                            <ul class="plan-features">
-                                <li><i class="fas fa-check"></i> Up to 10 tasks</li>
-                                <li><i class="fas fa-check"></i> 1 project</li>
-                                <li><i class="fas fa-check"></i> Basic analytics</li>
-                                <li class="disabled"><i class="fas fa-times"></i> Team collaboration</li>
-                                <li class="disabled"><i class="fas fa-times"></i> AI suggestions</li>
-                                <li class="disabled"><i class="fas fa-times"></i> Kanban board</li>
-                            </ul>
-                            <button class="btn btn-outline full-width" onclick="selectPlan('free')">Current
-                                Plan</button>
-                        </div>
-                        <!-- Pro -->
-                        <div class="pricing-card glass popular">
-                            <div class="plan-badge">Most Popular</div>
-                            <h3 class="plan-name">Pro</h3>
-                            <div class="plan-price"><span class="price-amount" data-monthly="12"
-                                    data-annual="8">$12</span><span class="price-period">/mo per user</span></div>
-                            <p class="plan-desc">For growing teams that need more power.</p>
-                            <ul class="plan-features">
-                                <li><i class="fas fa-check"></i> Unlimited tasks</li>
-                                <li><i class="fas fa-check"></i> Unlimited projects</li>
-                                <li><i class="fas fa-check"></i> Advanced analytics</li>
-                                <li><i class="fas fa-check"></i> Up to 10 team members</li>
-                                <li><i class="fas fa-check"></i> AI task suggestions</li>
-                                <li><i class="fas fa-check"></i> Full Kanban board</li>
-                            </ul>
-                            <button class="btn btn-primary full-width" onclick="selectPlan('pro')">Upgrade to
-                                Pro</button>
-                        </div>
-                        <!-- Enterprise -->
-                        <div class="pricing-card glass">
-                            <div class="plan-badge"></div>
-                            <h3 class="plan-name">Enterprise</h3>
-                            <div class="plan-price"><span class="price-amount" data-monthly="39"
-                                    data-annual="29">$39</span><span class="price-period">/mo per user</span></div>
-                            <p class="plan-desc">For large teams with advanced security needs.</p>
-                            <ul class="plan-features">
-                                <li><i class="fas fa-check"></i> Everything in Pro</li>
-                                <li><i class="fas fa-check"></i> Unlimited members</li>
-                                <li><i class="fas fa-check"></i> SSO & SAML</li>
-                                <li><i class="fas fa-check"></i> Admin controls</li>
-                                <li><i class="fas fa-check"></i> Priority support</li>
-                                <li><i class="fas fa-check"></i> Custom integrations</li>
-                            </ul>
-                            <button class="btn btn-outline full-width" onclick="selectPlan('enterprise')">Contact
-                                Sales</button>
-                        </div>
-                    </div>
-                </section>
-
-            </div><!-- /views-container -->
-        </main>
-    </div><!-- /app-shell -->
-
-    <!-- ============================================================ -->
-    <!-- TASK MODAL -->
-    <!-- ============================================================ -->
+    <!-- Task Modal -->
     <div class="modal" id="task-modal">
-        <div class="modal-content glass wide-modal">
+        <div class="modal-content glass">
             <div class="modal-header">
                 <h2 id="modal-title">Create New Task</h2>
-                <button class="close-modal" data-modal="task-modal"><i class="fas fa-times"></i></button>
+                <button class="close-modal"><i class="fas fa-times"></i></button>
             </div>
             <form id="task-form">
                 <input type="hidden" id="task-id">
@@ -563,52 +335,43 @@
                     <div class="form-group">
                         <label for="task-status">Status</label>
                         <select id="task-status">
-                            <option value="pending">To Do</option>
-                            <option value="inprogress">In Progress</option>
-                            <option value="review">Review</option>
+                            <option value="pending">Pending</option>
                             <option value="completed">Completed</option>
                         </select>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label for="task-assignee">Assign To</label>
-                    <select id="task-assignee">
-                        <option value="me">Me</option>
-                    </select>
-                </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-outline close-modal" data-modal="task-modal">Cancel</button>
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Save Task</button>
+                    <button type="button" class="btn btn-outline close-modal-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Task</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- ============================================================ -->
-    <!-- AI SUGGESTION PANEL -->
-    <!-- ============================================================ -->
-    <div class="modal" id="ai-modal">
-        <div class="modal-content glass wide-modal">
-            <div class="modal-header">
-                <h2><span class="ai-glow"><i class="fas fa-robot"></i></span> AI Task Suggestions</h2>
-                <button class="close-modal" data-modal="ai-modal"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="ai-body">
-                <div class="ai-input-row">
-                    <input type="text" id="ai-prompt" class="glass-input"
-                        placeholder="Describe your project goal... e.g. 'Launch a mobile app'">
-                    <button class="btn btn-primary" id="ai-generate-btn"><i class="fas fa-magic"></i> Generate</button>
-                </div>
-                <div id="ai-loading" class="ai-loading hidden">
-                    <div class="ai-thinking-dots"><span></span><span></span><span></span></div>
-                    <p>Thinking with AI...</p>
-                </div>
-                <div id="ai-results" class="ai-results"></div>
-            </div>
-        </div>
-    </div>
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+        <button class="mobile-nav-item active" data-target="dashboard-view">
+            <i class="fas fa-home"></i>
+            <span>Dashboard</span>
+        </button>
+        <button class="mobile-nav-item" data-target="tasks-view">
+            <i class="fas fa-tasks"></i>
+            <span>Tasks</span>
+        </button>
+        <button class="mobile-nav-item mobile-nav-add" id="mobile-add-btn">
+            <i class="fas fa-plus"></i>
+        </button>
+        <button class="mobile-nav-item" data-target="analytics-view">
+            <i class="fas fa-chart-pie"></i>
+            <span>Analytics</span>
+        </button>
+        <button class="mobile-nav-item" data-target="calendar-view">
+            <i class="fas fa-calendar-alt"></i>
+            <span>Calendar</span>
+        </button>
+    </nav>
 
-    <!-- Toast Container -->
+    <!-- Toast Notification Container -->
     <div id="toast-container"></div>
 
     <!-- Scripts -->
@@ -616,5 +379,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="script.js"></script>
 </body>
+
 
 </html>

@@ -130,6 +130,7 @@ logoutBtn.addEventListener('click', () => {
     tasks = [];
     renderTasks();
     updateDashboardStats();
+    if (isMobile()) closeMobileSidebar();
     authModal.classList.add('show');
     showToast('Logged out successfully', 'info');
 });
@@ -269,7 +270,8 @@ function switchView(targetView) {
 
 navItems.forEach(item => {
     item.addEventListener('click', () => {
-        switchView(item.getAttribute('data-target'));
+        const target = item.getAttribute('data-target');
+        if (target) switchView(target);
         if (isMobile()) closeMobileSidebar();
     });
 });

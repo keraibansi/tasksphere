@@ -128,6 +128,8 @@ logoutBtn.addEventListener('click', () => {
     localStorage.removeItem('taskSphere_token');
     localStorage.removeItem('taskSphere_user');
     tasks = [];
+    renderTasks();
+    updateDashboardStats();
     authModal.classList.add('show');
     showToast('Logged out successfully', 'info');
 });
@@ -168,19 +170,32 @@ async function apiCall(endpoint, method = 'GET', body = null) {
 
 // ------ TASK MANAGEMENT ------ //
 
-async function fetchTasks() {
-    try {
-        const res = await apiCall('/tasks');
-        if (res.ok) {
-            tasks = await res.json();
-            renderTasks();
-            updateDashboardStats();
-            initCharts();
-            initCalendar();
-        }
-    } catch (err) {
-        console.error(err);
-    }
+// ------ LOCAL STORAGE TASK HELPERS ------ //
+
+function getTaskStorageKey() {
+    // Store tasks per user so different accounts don't share tasks
+    return currentUser ? `taskSphere_tasks_${currentUser.id}` : 'taskSphere_tasks_guest';
+}
+
+function loadTasksFromStorage() {
+    const raw = localStorage.getItem(getTaskStorageKey());
+    return raw ? JSON.parse(raw) : [];
+}
+
+function saveTasksToStorage(taskArray) {
+    localStorage.setItem(getTaskStorageKey(), JSON.stringify(taskArray));
+}
+
+function generateId() {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+}
+
+function fetchTasks() {
+    tasks = loadTasksFromStorage();
+    renderTasks();
+    updateDashboardStats();
+    initCharts();
+    initCalendar();
 }
 
 // Theme Handling
@@ -307,7 +322,7 @@ openModalBtn.addEventListener('click', () => openModal());
 closeModalBtns.forEach(btn => btn.addEventListener('click', closeModal));
 
 // Task CRUD
-taskForm.addEventListener('submit', async (e) => {
+taskForm.addEventListener('submit', (e) => {
     e.preventDefault();
 
     const id = document.getElementById('task-id').value;
@@ -320,27 +335,25 @@ taskForm.addEventListener('submit', async (e) => {
         status: document.getElementById('task-status').value
     };
 
-    try {
-        if (id) {
-            const res = await apiCall(`/tasks/${id}`, 'PUT', taskData);
-            if (res.ok) {
-                const updatedTask = await res.json();
-                const index = tasks.findIndex(t => t.id === id);
-                tasks[index] = updatedTask;
-                showToast('Task updated successfully!', 'success');
-            }
-        } else {
-            const res = await apiCall('/tasks', 'POST', taskData);
-            if (res.ok) {
-                const newTask = await res.json();
-                tasks.unshift(newTask); // Add to beginning
-                showToast('Task created successfully!', 'success');
-            }
+    if (id) {
+        // Edit existing task
+        const index = tasks.findIndex(t => t.id === id);
+        if (index !== -1) {
+            tasks[index] = { ...tasks[index], ...taskData };
+            showToast('Task updated successfully!', 'success');
         }
-    } catch (err) {
-        showToast('Error saving task', 'error');
+    } else {
+        // Create new task
+        const newTask = {
+            id: generateId(),
+            ...taskData,
+            createdAt: new Date().toISOString()
+        };
+        tasks.unshift(newTask);
+        showToast('Task created successfully!', 'success');
     }
 
+    saveTasksToStorage(tasks);
     refreshUI();
     closeModal();
 });
@@ -352,37 +365,22 @@ function refreshUI() {
     initCalendar();
 }
 
-async function deleteTask(id) {
-    try {
-        const res = await apiCall(`/tasks/${id}`, 'DELETE');
-        if (res.ok) {
-            tasks = tasks.filter(t => t.id !== id);
-            refreshUI();
-            showToast('Task deleted!', 'error');
-        }
-    } catch (err) {
-        console.error(err);
-    }
+function deleteTask(id) {
+    tasks = tasks.filter(t => t.id !== id);
+    saveTasksToStorage(tasks);
+    refreshUI();
+    showToast('Task deleted!', 'error');
 }
 
-async function toggleTaskStatus(id) {
+function toggleTaskStatus(id) {
     const task = tasks.find(t => t.id === id);
     if (task) {
-        const newStatus = task.status === 'completed' ? 'pending' : 'completed';
-        try {
-            const res = await apiCall(`/tasks/${id}`, 'PUT', { status: newStatus });
-            if (res.ok) {
-                task.status = newStatus;
-                if (newStatus === 'completed') {
-                    showToast('Task completed! 🎉', 'success');
-                }
-                // We don't refresh the full UI initially to let CSS transitions happen, 
-                // but for robust state, a refreshUI is safe. The drag&drop handles UI.
-                refreshUI();
-            }
-        } catch (err) {
-            console.error(err);
+        task.status = task.status === 'completed' ? 'pending' : 'completed';
+        if (task.status === 'completed') {
+            showToast('Task completed! 🎉', 'success');
         }
+        saveTasksToStorage(tasks);
+        refreshUI();
     }
 }
 
@@ -503,24 +501,17 @@ function initSortable() {
             group: 'shared',
             animation: 150,
             ghostClass: 'glass',
-            onEnd: async function (evt) {
+            onEnd: function (evt) {
                 const itemEl = evt.item;
                 const taskId = itemEl.getAttribute('data-id');
                 const toColumn = evt.to.closest('.task-column').getAttribute('data-status');
 
                 const task = tasks.find(t => t.id === taskId);
                 if (task && task.status !== toColumn) {
-                    try {
-                        const res = await apiCall(`/tasks/${taskId}`, 'PUT', { status: toColumn });
-                        if (res.ok) {
-                            task.status = toColumn;
-                            if (toColumn === 'completed') showToast('Task updated to completed!', 'success');
-                            refreshUI();
-                        }
-                    } catch (err) {
-                        refreshUI(); // Revert on failure
-                        showToast('Error moving task', 'error');
-                    }
+                    task.status = toColumn;
+                    if (toColumn === 'completed') showToast('Task updated to completed!', 'success');
+                    saveTasksToStorage(tasks);
+                    refreshUI();
                 }
             }
         });

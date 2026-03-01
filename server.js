@@ -28,18 +28,7 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
-// Task Schema
-const taskSchema = new mongoose.Schema({
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    title: { type: String, required: true },
-    description: { type: String },
-    dueDate: { type: String, required: true },
-    priority: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
-    category: { type: String, default: 'other' },
-    status: { type: String, enum: ['pending', 'completed'], default: 'pending' }
-}, { timestamps: true });
 
-const Task = mongoose.model('Task', taskSchema);
 
 // Middleware to verify JWT
 const auth = (req, res, next) => {
@@ -116,88 +105,6 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// Task Routes
-app.get('/api/tasks', auth, async (req, res) => {
-    try {
-        const tasks = await Task.find({ userId: req.user.id }).sort({ createdAt: -1 });
-        const mappedTasks = tasks.map(t => ({
-            id: t._id,
-            title: t.title,
-            description: t.description,
-            dueDate: t.dueDate,
-            priority: t.priority,
-            category: t.category,
-            status: t.status,
-            createdAt: t.createdAt
-        }));
-        res.json(mappedTasks);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 
-app.post('/api/tasks', auth, async (req, res) => {
-    try {
-        const { title, description, dueDate, priority, category, status } = req.body;
-        const newTask = new Task({
-            userId: req.user.id,
-            title, description, dueDate, priority, category, status
-        });
-        const savedTask = await newTask.save();
-        res.json({
-            id: savedTask._id,
-            title: savedTask.title,
-            description: savedTask.description,
-            dueDate: savedTask.dueDate,
-            priority: savedTask.priority,
-            category: savedTask.category,
-            status: savedTask.status,
-            createdAt: savedTask.createdAt
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.put('/api/tasks/:id', auth, async (req, res) => {
-    try {
-        const task = await Task.findOne({ _id: req.params.id, userId: req.user.id });
-        if (!task) return res.status(404).json({ msg: 'Task not found' });
-
-        const { title, description, dueDate, priority, category, status } = req.body;
-        if (title) task.title = title;
-        if (description !== undefined) task.description = description;
-        if (dueDate) task.dueDate = dueDate;
-        if (priority) task.priority = priority;
-        if (category) task.category = category;
-        if (status) task.status = status;
-
-        const updatedTask = await task.save();
-        res.json({
-            id: updatedTask._id,
-            title: updatedTask.title,
-            description: updatedTask.description,
-            dueDate: updatedTask.dueDate,
-            priority: updatedTask.priority,
-            category: updatedTask.category,
-            status: updatedTask.status,
-            createdAt: updatedTask.createdAt
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.delete('/api/tasks/:id', auth, async (req, res) => {
-    try {
-        const task = await Task.findOne({ _id: req.params.id, userId: req.user.id });
-        if (!task) return res.status(404).json({ msg: 'Task not found' });
-
-        await Task.deleteOne({ _id: req.params.id });
-        res.json({ msg: 'Task deleted' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

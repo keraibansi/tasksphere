@@ -16,7 +16,13 @@ app.use(express.static(__dirname)); // Serve frontend files
 
 // MongoDB connection
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/tasksphere')
-    .then(() => console.log('MongoDB Connected'))
+    .then(() => {
+        console.log('MongoDB Connected');
+        // Drop tasks collection — tasks are stored in localStorage, not MongoDB
+        mongoose.connection.db.dropCollection('tasks')
+            .then(() => console.log('tasks collection dropped'))
+            .catch(() => { }); // Silently ignore if collection doesn't exist
+    })
     .catch(err => console.log('MongoDB connection error:', err));
 
 // User Schema

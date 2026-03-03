@@ -477,7 +477,14 @@ function applyFiltersAndSort() {
 document.getElementById('filter-status').addEventListener('change', applyFiltersAndSort);
 document.getElementById('filter-priority').addEventListener('change', applyFiltersAndSort);
 document.getElementById('sort-tasks').addEventListener('change', applyFiltersAndSort);
-document.getElementById('global-search').addEventListener('input', applyFiltersAndSort);
+document.getElementById('global-search').addEventListener('input', () => {
+    const query = document.getElementById('global-search').value;
+    if (query.trim().length > 0) {
+        // Switch to Tasks view so filtered results are visible
+        switchView('tasks-view');
+    }
+    applyFiltersAndSort();
+});
 
 function updateDashboardStats() {
     const total = tasks.length;

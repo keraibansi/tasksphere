@@ -1518,3 +1518,653 @@ textarea {
   background: var(--bg-gradient, var(--bg-primary));
   backdrop-filter: none;
 }
+
+/* ============================================
+   REMINDER BELL & PANEL
+   ============================================ */
+.reminder-bell-wrapper {
+  position: relative;
+}
+
+#reminder-bell-btn {
+  position: relative;
+  font-size: 1.1rem;
+}
+
+/* Pulsing red badge counter */
+.remind-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  border: 2px solid var(--bg-primary);
+  animation: badge-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.15);
+  }
+}
+
+/* Bell rings when there are reminders */
+#reminder-bell-btn.bell-ring i {
+  animation: bell-ring 1.2s ease-in-out;
+  transform-origin: top center;
+}
+
+@keyframes bell-ring {
+  0% {
+    transform: rotate(0deg);
+  }
+
+  15% {
+    transform: rotate(14deg);
+  }
+
+  30% {
+    transform: rotate(-12deg);
+  }
+
+  45% {
+    transform: rotate(10deg);
+  }
+
+  60% {
+    transform: rotate(-8deg);
+  }
+
+  75% {
+    transform: rotate(5deg);
+  }
+
+  90% {
+    transform: rotate(-3deg);
+  }
+
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+/* WhatsApp-style Modal */
+.reminder-panel {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -60%) scale(0.95);
+  width: 90%;
+  max-width: 440px;
+  max-height: 80vh;
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  z-index: 2005;
+  /* Above modal overlay */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reminder-panel.open {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: all;
+}
+
+/* WhatsApp-style overlay */
+.remind-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 2004;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.remind-overlay.active {
+  opacity: 1;
+  pointer-events: all;
+}
+
+/* Panel header row - WhatsApp style */
+.remind-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.remind-panel-header i {
+  color: var(--accent-color);
+}
+
+.remind-count {
+  background: var(--accent-color);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
+.remind-dismiss-all {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-family: inherit;
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.remind-dismiss-all:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: #ef4444;
+}
+
+/* Empty state */
+.remind-empty {
+  padding: 36px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.remind-empty i {
+  font-size: 2rem;
+  color: #10b981;
+}
+
+.remind-empty p {
+  font-size: 0.9rem;
+}
+
+/* Each reminder row */
+.remind-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  gap: 10px;
+  transition: background 0.2s;
+}
+
+.remind-item:last-child {
+  border-bottom: none;
+}
+
+.remind-item:hover {
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.remind-item-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+/* Urgency pill labels */
+.remind-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  border-radius: 20px;
+  display: inline-block;
+  width: fit-content;
+  text-transform: uppercase;
+}
+
+.remind-today {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.remind-tomorrow {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.remind-soon {
+  background: rgba(99, 102, 241, 0.12);
+  color: var(--accent-color);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+
+.remind-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.remind-date {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Per-item dismiss (×) button */
+.remind-dismiss {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: var(--transition);
+}
+
+.remind-dismiss:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* ============================================
+   MOBILE-STYLE APP NOTIFICATION CARDS
+   (Like WhatsApp / iOS push notifications)
+   ============================================ */
+
+#mobile-notif-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 360px;
+  width: calc(100vw - 40px);
+  pointer-events: none;
+}
+
+.mobile-notif {
+  pointer-events: all;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.35),
+    0 8px 25px rgba(0, 0, 0, 0.2),
+    0 1px 0 rgba(255, 255, 255, 0.05) inset;
+  overflow: hidden;
+  transform: translateX(110%) scale(0.95);
+  opacity: 0;
+  transition: transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 0.35s ease;
+  cursor: pointer;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+[data-theme='dark'] .mobile-notif {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.mobile-notif.show {
+  transform: translateX(0) scale(1);
+  opacity: 1;
+}
+
+.mobile-notif.hide {
+  transform: translateX(110%) scale(0.9);
+  opacity: 0;
+  transition: transform 0.35s cubic-bezier(0.4, 0, 1, 1),
+    opacity 0.3s ease;
+}
+
+/* App bar — mimics iOS notification header */
+.mobile-notif-inner {
+  position: relative;
+}
+
+.mobile-notif-app-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 6px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+[data-theme='dark'] .mobile-notif-app-bar {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.mobile-notif-app-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.mobile-notif-app-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  flex-shrink: 0;
+}
+
+.mobile-notif-app-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mobile-notif-dot {
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  opacity: 0.6;
+}
+
+.mobile-notif-time {
+  font-size: 0.68rem;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.mobile-notif-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, color 0.2s;
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+.mobile-notif-close:hover {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  opacity: 1;
+}
+
+/* Notification body */
+.mobile-notif-body {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px 10px;
+}
+
+.mobile-notif-urgency-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+  box-shadow: 0 0 8px currentColor;
+}
+
+.mobile-notif-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-notif-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 3px;
+  letter-spacing: 0.01em;
+}
+
+.mobile-notif-message {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-notif-sub {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mobile-notif-badge {
+  font-size: 0.67rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mobile-notif-date {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Countdown progress bar at bottom */
+.mobile-notif-progress {
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(90deg, currentColor, transparent);
+  opacity: 0.7;
+  border-radius: 0 0 16px 16px;
+}
+
+/* Hover lift effect */
+.mobile-notif:hover {
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.4),
+    0 10px 30px rgba(0, 0, 0, 0.25);
+  transform: translateX(-2px) scale(1.01);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* =============================================
+   MOBILE — Real phone-style top notifications
+   (Slides down from top, like Android / iOS)
+   ============================================= */
+@media (max-width: 768px) {
+
+  /* Container: pinned at top, full width */
+  #mobile-notif-container {
+    top: 0;
+    bottom: auto;
+    left: 0;
+    right: 0;
+    max-width: 100vw;
+    width: 100vw;
+    gap: 0;
+    padding: 0;
+    z-index: 999999;
+  }
+
+  /* Card: full width, rounded bottom only, slides DOWN from top */
+  .mobile-notif {
+    width: 100%;
+    border-radius: 0 0 20px 20px;
+    transform: translateY(-110%) scale(1);
+    /* hidden above screen */
+    opacity: 1;
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.45),
+      0 4px 16px rgba(0, 0, 0, 0.25);
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .mobile-notif.show {
+    transform: translateY(0) scale(1);
+    /* slide into view */
+    opacity: 1;
+    transition: transform 0.42s cubic-bezier(0.34, 1.38, 0.64, 1);
+  }
+
+  .mobile-notif.hide {
+    transform: translateY(-110%) scale(1);
+    /* slide back up */
+    opacity: 1;
+    transition: transform 0.32s cubic-bezier(0.4, 0, 0.8, 0.6);
+  }
+
+  /* Hover/active lift should be disabled on mobile */
+  .mobile-notif:hover {
+    transform: translateY(0) scale(1);
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.45),
+      0 4px 16px rgba(0, 0, 0, 0.25);
+  }
+
+  /* App bar tweaks */
+  .mobile-notif-app-bar {
+    padding: 12px 16px 8px;
+  }
+
+  .mobile-notif-app-icon {
+    width: 26px;
+    height: 26px;
+    font-size: 0.75rem;
+    border-radius: 8px;
+  }
+
+  .mobile-notif-app-name {
+    font-size: 0.75rem;
+  }
+
+  /* Body tweaks — more spacious on mobile */
+  .mobile-notif-body {
+    padding: 10px 16px 14px;
+    gap: 12px;
+  }
+
+  .mobile-notif-urgency-dot {
+    width: 10px;
+    height: 10px;
+    margin-top: 6px;
+  }
+
+  .mobile-notif-title {
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+  }
+
+  .mobile-notif-message {
+    font-size: 1rem;
+    margin-bottom: 10px;
+    white-space: normal;
+    /* allow wrapping on mobile */
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .mobile-notif-badge {
+    font-size: 0.7rem;
+    padding: 3px 10px;
+  }
+
+  .mobile-notif-date {
+    font-size: 0.72rem;
+  }
+
+  .mobile-notif-close {
+    width: 28px;
+    height: 28px;
+    font-size: 0.85rem;
+    opacity: 0.7;
+  }
+
+  /* Progress bar at bottom acts as swipe hint */
+  .mobile-notif-progress {
+    height: 4px;
+    border-radius: 0 0 20px 20px;
+  }
+
+  /* Small swipe-handle line at very top — like iOS notification handles */
+  .mobile-notif-inner::before {
+    content: '';
+    display: block;
+    width: 36px;
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    margin: 8px auto 0;
+    opacity: 0.5;
+  }
+}

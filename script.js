@@ -38,6 +38,286 @@ const taskModal = document.getElementById('task-modal');
 const taskForm = document.getElementById('task-form');
 const modalTitle = document.getElementById('modal-title');
 
+// ---- REMINDER SYSTEM ---- //
+
+// Keys dismissed per session (persisted in localStorage so they survive page refresh)
+function getDismissedKey() {
+    return currentUser ? `taskSphere_dismissed_${currentUser.id}` : 'taskSphere_dismissed_guest';
+}
+function getDismissed() {
+    try { return JSON.parse(localStorage.getItem(getDismissedKey())) || []; }
+    catch { return []; }
+}
+function saveDismissed(arr) {
+    localStorage.setItem(getDismissedKey(), JSON.stringify(arr));
+}
+function dismissReminder(taskId) {
+    const d = getDismissed();
+    if (!d.includes(taskId)) { d.push(taskId); saveDismissed(d); }
+    buildReminderPanel();
+}
+
+function getUpcomingTasks() {
+    const now = new Date();
+    // Midnight of today in local time
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const dismissed = getDismissed();
+    return tasks.filter(t => {
+        if (t.status === 'completed') return false;
+        if (dismissed.includes(t.id)) return false;
+        const due = new Date(t.dueDate + 'T00:00:00');
+        const daysLeft = Math.round((due - todayMidnight) / (1000 * 60 * 60 * 24));
+        return daysLeft >= 0 && daysLeft <= 2;
+    }).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+}
+
+function daysLabel(task) {
+    const now = new Date();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const due = new Date(task.dueDate + 'T00:00:00');
+    const daysLeft = Math.round((due - todayMidnight) / (1000 * 60 * 60 * 24));
+    if (daysLeft === 0) return { text: 'Due Today', cls: 'remind-today' };
+    if (daysLeft === 1) return { text: 'Due Tomorrow', cls: 'remind-tomorrow' };
+    return { text: 'Due in 2 Days', cls: 'remind-soon' };
+}
+
+function updateReminderBadge() {
+    const bell = document.getElementById('reminder-bell-btn');
+    if (!bell) return;
+    const badge = bell.querySelector('.remind-badge');
+    const count = getUpcomingTasks().length;
+    if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'flex';
+        bell.classList.add('bell-ring');
+    } else {
+        badge.style.display = 'none';
+        bell.classList.remove('bell-ring');
+    }
+}
+
+function buildReminderPanel() {
+    const panel = document.getElementById('reminder-panel');
+    if (!panel) return;
+    const upcoming = getUpcomingTasks();
+    if (upcoming.length === 0) {
+        panel.innerHTML = `
+            <div class="remind-panel-header">
+                <span><i class="fas fa-bell"></i> Reminders</span>
+            </div>
+            <div class="remind-empty">
+                <i class="fas fa-check-circle"></i>
+                <p>You're all caught up!</p>
+            </div>`;
+    } else {
+        const items = upcoming.map(t => {
+            const lbl = daysLabel(t);
+            return `
+            <div class="remind-item">
+                <div class="remind-item-left">
+                    <span class="remind-label ${lbl.cls}">${lbl.text}</span>
+                    <p class="remind-title">${t.title}</p>
+                    <p class="remind-date"><i class="far fa-calendar"></i> ${new Date(t.dueDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                </div>
+                <button class="remind-dismiss" onclick="dismissReminder('${t.id}')" title="Dismiss">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>`;
+        }).join('');
+        panel.innerHTML = `
+            <div class="remind-panel-header">
+                <span><i class="fas fa-bell"></i> Reminders <span class="remind-count">${upcoming.length}</span></span>
+                <button class="remind-dismiss-all" onclick="dismissAllReminders()">Dismiss All</button>
+            </div>
+            ${items}`;
+    }
+    updateReminderBadge();
+}
+
+function dismissAllReminders() {
+    const d = getDismissed();
+    getUpcomingTasks().forEach(t => { if (!d.includes(t.id)) d.push(t.id); });
+    saveDismissed(d);
+    buildReminderPanel();
+}
+
+function toggleReminderPanel() {
+    const panel = document.getElementById('reminder-panel');
+    const overlay = document.getElementById('remind-overlay');
+
+    if (!panel || !overlay) return;
+
+    const isOpen = panel.classList.contains('open');
+    if (!isOpen) {
+        buildReminderPanel();
+        panel.classList.add('open');
+        overlay.classList.add('active');
+    } else {
+        panel.classList.remove('open');
+        overlay.classList.remove('active');
+    }
+}
+
+async function requestNotificationPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission();
+    }
+}
+
+// ---- MOBILE-STYLE APP NOTIFICATION TOASTS ---- //
+
+function showMobileNotification(task) {
+    const lbl = daysLabel(task);
+
+    // Pick icon & colors based on urgency
+    let urgencyIcon, urgencyColor, urgencyBg;
+    if (lbl.cls === 'remind-today') {
+        urgencyIcon = 'fas fa-fire'; urgencyColor = '#ef4444'; urgencyBg = 'rgba(239,68,68,0.12)';
+    } else if (lbl.cls === 'remind-tomorrow') {
+        urgencyIcon = 'fas fa-exclamation-circle'; urgencyColor = '#f59e0b'; urgencyBg = 'rgba(245,158,11,0.12)';
+    } else {
+        urgencyIcon = 'fas fa-bell'; urgencyColor = '#6366f1'; urgencyBg = 'rgba(99,102,241,0.12)';
+    }
+
+    const dueStr = new Date(task.dueDate + 'T00:00:00').toLocaleDateString('en-US', {
+        weekday: 'short', month: 'short', day: 'numeric'
+    });
+
+    const notif = document.createElement('div');
+    notif.className = 'mobile-notif';
+    notif.innerHTML = `
+        <div class="mobile-notif-inner">
+            <div class="mobile-notif-app-bar">
+                <div class="mobile-notif-app-info">
+                    <div class="mobile-notif-app-icon" style="background:${urgencyBg}; color:${urgencyColor}">
+                        <i class="fas fa-layer-group"></i>
+                    </div>
+                    <span class="mobile-notif-app-name">TaskSphere</span>
+                    <span class="mobile-notif-dot">•</span>
+                    <span class="mobile-notif-time">now</span>
+                </div>
+                <button class="mobile-notif-close" onclick="this.closest('.mobile-notif').remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="mobile-notif-body">
+                <div class="mobile-notif-urgency-dot" style="background:${urgencyColor}"></div>
+                <div class="mobile-notif-content">
+                    <div class="mobile-notif-title">⏰ Task Reminder</div>
+                    <div class="mobile-notif-message">${task.title}</div>
+                    <div class="mobile-notif-sub">
+                        <span class="mobile-notif-badge" style="color:${urgencyColor}; background:${urgencyBg}">
+                            <i class="${urgencyIcon}"></i> ${lbl.text}
+                        </span>
+                        <span class="mobile-notif-date"><i class="far fa-calendar-alt"></i> ${dueStr}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="mobile-notif-progress"></div>
+        </div>
+    `;
+
+    // Add to container
+    let container = document.getElementById('mobile-notif-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'mobile-notif-container';
+        document.body.appendChild(container);
+    }
+    container.appendChild(notif);
+
+    // Animate in
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => notif.classList.add('show'));
+    });
+
+    // Animate progress bar
+    const progressBar = notif.querySelector('.mobile-notif-progress');
+    progressBar.style.background = urgencyColor;
+    progressBar.style.transition = 'width 5s linear';
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            progressBar.style.width = '0%';
+        });
+    });
+
+    // Auto-dismiss — longer on mobile for readability
+    const isMobileDevice = window.innerWidth <= 768;
+    const dismissDelay = isMobileDevice ? 7000 : 5500;
+    const timer = setTimeout(() => dismissMobileNotif(notif), dismissDelay);
+    notif.addEventListener('mouseenter', () => clearTimeout(timer));
+    notif.addEventListener('mouseleave', () => setTimeout(() => dismissMobileNotif(notif), 2000));
+
+    // Touch swipe-up to dismiss (mobile gesture)
+    let touchStartY = 0;
+    notif.addEventListener('touchstart', (e) => {
+        touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    notif.addEventListener('touchmove', (e) => {
+        const delta = e.touches[0].clientY - touchStartY;
+        if (delta < -30) {  // swiped up
+            clearTimeout(timer);
+            dismissMobileNotif(notif);
+        }
+    }, { passive: true });
+
+    // Click to open reminder panel
+    notif.querySelector('.mobile-notif-body').addEventListener('click', () => {
+        dismissMobileNotif(notif);
+        if (!document.getElementById('reminder-panel').classList.contains('open')) {
+            toggleReminderPanel();
+        }
+    });
+}
+
+function dismissMobileNotif(notif) {
+    notif.classList.remove('show');
+    notif.classList.add('hide');
+    setTimeout(() => notif.remove(), 400);
+}
+
+function fireBrowserNotifications(upcoming) {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const alreadyFired = JSON.parse(sessionStorage.getItem('taskSphere_notified') || '[]');
+    upcoming.forEach(t => {
+        if (alreadyFired.includes(t.id)) return;
+        const lbl = daysLabel(t);
+        new Notification(`⏰ TaskSphere Reminder`, {
+            body: `"${t.title}" — ${lbl.text}`,
+            icon: 'https://ui-avatars.com/api/?name=TS&background=6366f1&color=fff',
+            tag: `tasksphere-${t.id}`
+        });
+        alreadyFired.push(t.id);
+    });
+    sessionStorage.setItem('taskSphere_notified', JSON.stringify(alreadyFired));
+}
+
+function fireInAppNotifications(upcoming) {
+    // Only show in-app mobile notifications once per session per task
+    const alreadyShown = JSON.parse(sessionStorage.getItem('taskSphere_inapp_notified') || '[]');
+    const toShow = upcoming.filter(t => !alreadyShown.includes(t.id));
+
+    // Show them one by one, staggered
+    toShow.forEach((t, i) => {
+        setTimeout(() => showMobileNotification(t), i * 700);
+        alreadyShown.push(t.id);
+    });
+
+    if (toShow.length > 0) {
+        sessionStorage.setItem('taskSphere_inapp_notified', JSON.stringify(alreadyShown));
+    }
+}
+
+function checkReminders() {
+    if (!token) return; // only when logged in
+    const upcoming = getUpcomingTasks();
+    updateReminderBadge();
+    if (upcoming.length > 0) {
+        fireBrowserNotifications(upcoming);
+        fireInAppNotifications(upcoming);
+    }
+}
+
 // Initialize App
 function initApp() {
     setTheme(currentTheme);
@@ -51,6 +331,7 @@ function initApp() {
         authModal.classList.remove('show');
         updateUserUI();
         fetchTasks();
+        requestNotificationPermission();
     }
 }
 
@@ -197,6 +478,9 @@ function fetchTasks() {
     updateDashboardStats();
     initCharts();
     initCalendar();
+    // Run reminder check after tasks are loaded
+    checkReminders();
+    buildReminderPanel();
 }
 
 // Theme Handling
@@ -734,4 +1018,8 @@ function filterByDate(dateStr) {
 }
 
 // Start App
-document.addEventListener('DOMContentLoaded', initApp);
+document.addEventListener('DOMContentLoaded', () => {
+    initApp();
+    // Periodic reminder check every 60 seconds
+    setInterval(() => { if (token) checkReminders(); }, 60000);
+});

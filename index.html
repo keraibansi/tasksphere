@@ -71,6 +71,15 @@
             </div>
             <div class="header-actions">
                 <div class="current-date" id="current-date"></div>
+
+                <!-- Reminder Bell -->
+                <div class="reminder-bell-wrapper">
+                    <button class="icon-btn" id="reminder-bell-btn" onclick="toggleReminderPanel()" title="Reminders">
+                        <i class="fas fa-bell"></i>
+                        <span class="remind-badge" style="display:none"></span>
+                    </button>
+                </div>
+
                 <button class="icon-btn theme-toggle" id="theme-toggle">
                     <i class="fas fa-sun"></i>
                 </button>
@@ -374,6 +383,12 @@
 
     <!-- Toast Notification Container -->
     <div id="toast-container"></div>
+
+    <!-- Reminder Modal Overlay & Panel (WhatsApp style) -->
+    <div class="remind-overlay" id="remind-overlay" onclick="toggleReminderPanel()"></div>
+    <div class="reminder-panel" id="reminder-panel">
+        <!-- Built dynamically by JS -->
+    </div>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
